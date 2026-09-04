@@ -12,58 +12,94 @@ export function Card({ card, size = "normal", onClick, selected }: CardProps) {
   const isBack = !card;
 
   const baseClasses = cn(
-    "relative flex flex-col items-center justify-center rounded-xl border-2 transition-all cursor-pointer shadow-sm overflow-hidden",
-    size === "normal" ? "w-24 h-36 p-2 text-sm" : "w-12 h-16 p-1 text-[10px]",
-    selected ? "border-primary -translate-y-2 ring-4 ring-primary/20" : "border-border hover:-translate-y-1 hover:shadow-md",
-    isBack ? "bg-primary" : "bg-card text-card-foreground"
+    "relative flex flex-col justify-between rounded-xl transition-all cursor-pointer shadow-md overflow-hidden bg-white dark:bg-zinc-900 border",
+    size === "normal" ? "w-28 sm:w-32 aspect-[5/7] p-2 text-sm" : "w-16 aspect-[5/7] p-1 text-[10px]",
+    selected ? "border-primary ring-2 ring-primary ring-offset-2 -translate-y-4" : "border-border hover:-translate-y-2 hover:shadow-lg hover:border-primary/50"
   );
 
   if (isBack) {
     return (
-      <div className={baseClasses} onClick={onClick}>
-        <div className="absolute inset-1 border border-primary-foreground/20 rounded-lg flex items-center justify-center">
-          <span className="font-bold text-primary-foreground opacity-50 rotate-45 text-xs">COMBO</span>
+      <div className={cn(baseClasses, "bg-primary border-primary hover:-translate-y-0 cursor-default")} onClick={onClick}>
+        <div className="absolute inset-1.5 border-2 border-primary-foreground/30 rounded-lg flex items-center justify-center pointer-events-none">
+          <span className="font-black text-primary-foreground opacity-60 -rotate-45 tracking-widest text-base sm:text-lg">COMBO</span>
         </div>
       </div>
     );
   }
 
   const catColors: Record<string, string> = {
-    "Segurança Digital": "bg-red-500",
-    "Privacidade": "bg-blue-500",
-    "Pensamento Crítico": "bg-green-500",
-    "Cidadania Digital": "bg-yellow-500",
-    "Ferramentas Digitais": "bg-purple-500",
-    "Inteligência Artificial": "bg-orange-500",
+    "SEGURANÇA DIGITAL": "bg-red-500 text-white",
+    "PRIVACIDADE E PROTEÇÃO DE DADOS": "bg-blue-500 text-white",
+    "INFORMAÇÃO E PENSAMENTO CRÍTICO": "bg-green-600 text-white",
+    "COMUNICAÇÃO E CIDADANIA DIGITAL": "bg-yellow-500 text-black",
+    "COMPETÊNCIAS E FERRAMENTAS DIGITAIS": "bg-purple-500 text-white",
+    "INTELIGÊNCIA ARTIFICIAL E USO CRÍTICO": "bg-orange-500 text-black",
   };
 
   return (
     <div className={baseClasses} onClick={onClick}>
-      {card.type === "object" && (
-        <>
-          <div className={cn("w-full h-3 rounded-full mb-1", card.category ? catColors[card.category] : "bg-zinc-500")} />
-          <span className="font-semibold text-center leading-tight truncate w-full">{card.name}</span>
-          <span className="text-[10px] text-muted-foreground mt-auto uppercase">{card.category}</span>
-        </>
-      )}
+      {/* Imagem de Fundo (Moldura SVG) */}
+      <div 
+        className="absolute inset-0 z-0 opacity-10 dark:opacity-20 bg-cover bg-center pointer-events-none" 
+        style={{ backgroundImage: 'url(/card-test.svg)' }}
+      />
+      
+      {/* Container do Conteúdo (z-10 para ficar acima do SVG) */}
+      <div className="relative z-10 flex flex-col h-full">
+        {card.type === "object" && (
+          <>
+            <div className={cn(
+              "w-full px-1 py-0.5 rounded text-[7px] sm:text-[8px] font-bold tracking-wider mb-2 uppercase text-center line-clamp-2",
+              card.category ? catColors[card.category] : "bg-zinc-500 text-white"
+            )}>
+              {card.category}
+            </div>
+            <div className="flex-1 flex items-center justify-center">
+              <span className="font-black text-center leading-tight text-xs sm:text-sm">{card.name}</span>
+            </div>
+            {size === "normal" && card.description && (
+              <div className="mt-auto border-t pt-1.5 border-border/50">
+                <p className="text-[9px] text-muted-foreground leading-tight text-center line-clamp-3">{card.description}</p>
+              </div>
+            )}
+          </>
+        )}
 
-      {card.type === "joker" && (
-        <>
-          <div className="w-full h-3 rounded-full mb-1 bg-gradient-to-r from-red-500 via-green-500 to-blue-500" />
-          <span className="font-bold text-center leading-tight text-transparent bg-clip-text bg-gradient-to-r from-red-500 to-blue-500">
-            {card.name}
-          </span>
-          <span className="text-[10px] text-muted-foreground mt-auto uppercase">Wild</span>
-        </>
-      )}
+        {card.type === "joker" && (
+          <>
+            <div className="w-full px-1 py-0.5 rounded text-[7px] sm:text-[8px] font-bold tracking-wider mb-2 uppercase text-center bg-gradient-to-r from-red-500 via-green-500 to-blue-500 text-white">
+              CARTA CORINGA
+            </div>
+            <div className="flex-1 flex items-center justify-center">
+              <span className="font-black text-center leading-tight text-base sm:text-lg text-transparent bg-clip-text bg-gradient-to-br from-red-500 via-green-500 to-blue-500">
+                {card.name}
+              </span>
+            </div>
+            {size === "normal" && card.description && (
+              <div className="mt-auto border-t pt-1.5 border-border/50">
+                <p className="text-[9px] text-muted-foreground leading-tight text-center line-clamp-3">{card.description}</p>
+              </div>
+            )}
+          </>
+        )}
 
-      {card.type === "effect" && (
-        <>
-          <div className="w-full h-3 rounded-full mb-1 bg-zinc-800 dark:bg-zinc-200" />
-          <span className="font-semibold text-center leading-tight">{card.name}</span>
-          <span className="text-[10px] text-muted-foreground mt-auto uppercase text-center truncate w-full">Action</span>
-        </>
-      )}
+        {card.type === "effect" && (
+          <>
+            <div className="w-full px-1 py-0.5 rounded text-[7px] sm:text-[8px] font-bold tracking-wider mb-2 uppercase text-center bg-zinc-800 text-white dark:bg-zinc-200 dark:text-black">
+              EFEITO ESPECIAL
+            </div>
+            <div className="flex-1 flex flex-col items-center justify-center gap-1">
+               <span className="text-xl sm:text-2xl">⚡</span>
+              <span className="font-black text-center leading-tight text-xs sm:text-sm">{card.name}</span>
+            </div>
+            {size === "normal" && card.description && (
+              <div className="mt-auto border-t pt-1.5 border-border/50">
+                <p className="text-[9px] font-medium text-foreground leading-tight text-center line-clamp-3">{card.description}</p>
+              </div>
+            )}
+          </>
+        )}
+      </div>
     </div>
   );
 }

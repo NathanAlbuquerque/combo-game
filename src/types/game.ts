@@ -1,4 +1,10 @@
-export type ObjectCategory = 'Segurança Digital' | 'Privacidade' | 'Pensamento Crítico' | 'Cidadania Digital' | 'Ferramentas Digitais' | 'Inteligência Artificial';
+export type ObjectCategory = 
+  | 'SEGURANÇA DIGITAL' 
+  | 'PRIVACIDADE E PROTEÇÃO DE DADOS' 
+  | 'INFORMAÇÃO E PENSAMENTO CRÍTICO' 
+  | 'COMUNICAÇÃO E CIDADANIA DIGITAL' 
+  | 'COMPETÊNCIAS E FERRAMENTAS DIGITAIS' 
+  | 'INTELIGÊNCIA ARTIFICIAL E USO CRÍTICO';
 
 export type CardType = 'object' | 'effect' | 'joker';
 

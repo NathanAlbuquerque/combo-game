@@ -1,28 +1,20 @@
 import type * as Party from "partykit/server";
-import { GameState, ClientMessage, ServerMessage, Card, ObjectCategory, Player } from "../src/types/game";
+import { GameState, ClientMessage, ServerMessage, Card, Player } from "../src/types/game";
+import { OBJECT_CARDS_DATA, EFFECTS_CARDS_DATA } from "../src/data/cards";
 
 function generateDeck(): Card[] {
   const deck: Card[] = [];
-  const categories: ObjectCategory[] = [
-    'Segurança Digital', 
-    'Privacidade', 
-    'Pensamento Crítico', 
-    'Cidadania Digital', 
-    'Ferramentas Digitais', 
-    'Inteligência Artificial'
-  ];
   let idCounter = 1;
 
-  // 30 Objetos (5 por categoria)
-  categories.forEach(cat => {
-    for (let i = 0; i < 5; i++) {
-      deck.push({
-        id: `obj_${idCounter++}`,
-        type: 'object',
-        category: cat,
-        name: `${cat} Nvl ${i + 1}`,
-      });
-    }
+  // 30 Objetos
+  OBJECT_CARDS_DATA.forEach(item => {
+    deck.push({
+      id: `obj_${idCounter++}`,
+      type: 'object',
+      category: item.category,
+      name: item.name,
+      description: item.description,
+    });
   });
 
   // 2 Coringas
@@ -35,20 +27,8 @@ function generateDeck(): Card[] {
     });
   }
 
-  // Efeitos (8 exclusivos)
-  const effectsConfigs = [
-    { name: 'Senha Forte', desc: 'Compre 2 cartas.' },
-    { name: 'Rede de Apoio', desc: 'Compre 3 cartas e escolha outro jogador para comprar 1.' },
-    { name: 'Alerta de Phishing', desc: 'Escolha um jogador. Ele deve descartar 1 carta da mão à escolha dele.' },
-    { name: 'Tomou Block!', desc: 'Escolha um jogador. Ele perde o próximo turno.' },
-    { name: 'Vídeo Deepfake', desc: 'Troque toda a sua mão com a mão de outro jogador.' },
-    { name: 'Limpeza de Cache', desc: 'Se você tiver 0 ou 1 carta na mão (após jogar esta), compre 3 cartas.' },
-    { name: 'Engajamento Merecido', desc: 'Compre 1 carta para cada objeto que você tem baixado.' },
-    { name: 'Esqueceu a Senha', desc: 'Escolha um jogador. Ele descarta 1 carta aleatória da mão.' },
-  ];
-
-  // Geramos 2 de cada para um total de 16 efeitos
-  effectsConfigs.forEach(conf => {
+  // Efeitos (16 cartas = 8 efeitos x 2)
+  EFFECTS_CARDS_DATA.forEach(conf => {
     for (let i = 0; i < 2; i++) {
       deck.push({
         id: `eff_${idCounter++}`,
