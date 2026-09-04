@@ -79,9 +79,9 @@ export default class MainServer implements Party.Server {
     this.state.currentTurnPlayerId = playerIds[nextIndex];
   }
 
-  private checkVictory(playerId: string) {
+  private checkVictory(playerId: string): boolean {
     const p = this.state.players[playerId];
-    if (!p) return;
+    if (!p) return false;
     const uniqueCategories = new Set<string>();
     let jokersCount = 0;
     
@@ -96,7 +96,9 @@ export default class MainServer implements Party.Server {
     if (uniqueCategories.size + jokersCount >= 5) {
       this.state.winnerId = playerId;
       this.state.status = 'finished';
+      return true;
     }
+    return false;
   }
 
   private drawOneCard(): Card | null {
@@ -205,6 +207,7 @@ export default class MainServer implements Party.Server {
           
           const card = me.hand[cardIndex];
           
+          let hasWon = false;
           if (card.type === 'object') {
             const hasCategory = me.objectArea.some(c => c.category === card.category);
             if (hasCategory) {
@@ -213,12 +216,12 @@ export default class MainServer implements Party.Server {
             }
             me.hand.splice(cardIndex, 1);
             me.objectArea.push(card);
-            this.checkVictory(me.id);
+            hasWon = this.checkVictory(me.id);
           } 
           else if (card.type === 'joker') {
             me.hand.splice(cardIndex, 1);
             me.objectArea.push(card);
-            this.checkVictory(me.id);
+            hasWon = this.checkVictory(me.id);
           } 
           else if (card.type === 'effect') {
             me.hand.splice(cardIndex, 1);
@@ -226,7 +229,7 @@ export default class MainServer implements Party.Server {
             // TODO: implementar lógica específica de efeitos no futuro
           }
 
-          if (this.state.status !== 'finished') {
+          if (!hasWon) {
             this.passTurn();
           }
           this.broadcastSync();
