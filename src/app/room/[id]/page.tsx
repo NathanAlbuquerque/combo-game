@@ -83,8 +83,9 @@ export default function RoomPage() {
   // AÇÕES
   const handleStartGame = () => socket.send(JSON.stringify({ type: "start_game" }));
   const handleDraw = () => socket.send(JSON.stringify({ type: "draw_card" }));
-  const handlePlay = (cardId: string) => socket.send(JSON.stringify({ type: "play_card", cardId }));
+  const handlePlay = (cardId: string, targetId?: string) => socket.send(JSON.stringify({ type: "play_card", cardId, targetId }));
   const handleTrade = (targetPlayerId: string) => socket.send(JSON.stringify({ type: "trade_card", targetPlayerId }));
+  const handleDiscard = (cardId: string) => socket.send(JSON.stringify({ type: "discard_card", cardId }));
 
   // ESTADO: LOBBY
   if (gameState.status === "lobby") {
@@ -158,6 +159,7 @@ export default function RoomPage() {
         onDraw={handleDraw} 
         onPlay={handlePlay}
         onTrade={handleTrade}
+        onDiscard={handleDiscard}
       />
     </>
   );

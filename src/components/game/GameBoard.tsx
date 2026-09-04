@@ -9,20 +9,56 @@ interface GameBoardProps {
   state: GameState;
   myId: string;
   onDraw: () => void;
-  onPlay: (cardId: string) => void;
+  onPlay: (cardId: string, targetId?: string) => void;
   onTrade: (targetPlayerId: string) => void;
+  onDiscard: (cardId: string) => void;
 }
 
-export function GameBoard({ state, myId, onDraw, onPlay, onTrade }: GameBoardProps) {
+export function GameBoard({ state, myId, onDraw, onPlay, onTrade, onDiscard }: GameBoardProps) {
   const [tradingMode, setTradingMode] = useState(false);
+  const [targetingCardId, setTargetingCardId] = useState<string | null>(null);
 
   const me = state.players[myId];
   const opponents = Object.values(state.players).filter((p) => p.id !== myId);
-  const isActiveTurn = state.currentTurnPlayerId === myId;
+  
+  const isMyTurn = state.currentTurnPlayerId === myId;
+  const isPendingMyDiscard = state.pendingAction?.playerId === myId && state.pendingAction?.type === 'discard';
+  
+  // O turno é "ativo" se for minha vez normal e NÃO houver pendingAction rolando (que pausa o jogo)
+  const isActiveTurn = isMyTurn && !state.pendingAction;
+
   const topDiscard = state.discard.length > 0 ? state.discard[state.discard.length - 1] : undefined;
 
-  const handleTradeClick = (targetId: string) => {
-    onTrade(targetId);
+  const handlePlayCard = (cardId: string) => {
+    if (isPendingMyDiscard) {
+      onDiscard(cardId);
+      return;
+    }
+
+    const card = me.hand.find(c => c.id === cardId);
+    if (!card) return;
+    
+    const targetEffects = ['Rede de Apoio', 'Alerta de Phishing', 'Tomou Block!', 'Vídeo Deepfake', 'Esqueceu a Senha'];
+    if (card.type === 'effect' && targetEffects.includes(card.name)) {
+      setTargetingCardId(cardId);
+      setTradingMode(false); // desliga o trade se estivesse on
+    } else {
+      onPlay(cardId);
+    }
+  };
+
+  const handleOpponentClick = (targetId: string) => {
+    if (targetingCardId) {
+      onPlay(targetingCardId, targetId);
+      setTargetingCardId(null);
+    } else if (tradingMode) {
+      onTrade(targetId);
+      setTradingMode(false);
+    }
+  };
+
+  const cancelTargeting = () => {
+    setTargetingCardId(null);
     setTradingMode(false);
   };
 
@@ -34,34 +70,60 @@ export function GameBoard({ state, myId, onDraw, onPlay, onTrade }: GameBoardPro
         {opponents.length === 0 ? (
           <div className="w-full text-center text-sm text-muted-foreground">Esperando oponentes...</div>
         ) : (
-          opponents.map(opp => (
-            <OpponentView 
-              key={opp.id} 
-              player={opp} 
-              isActiveTurn={state.currentTurnPlayerId === opp.id}
-              canTrade={tradingMode && isActiveTurn && opp.hand.length > 0 && me.hand.length > 0}
-              onTradeClick={() => handleTradeClick(opp.id)}
-            />
-          ))
+          opponents.map(opp => {
+            const isOppTurn = state.currentTurnPlayerId === opp.id;
+            
+            let actionLabel = "";
+            let canClick = false;
+            
+            if (targetingCardId && isActiveTurn) {
+              actionLabel = "Usar Efeito";
+              canClick = true;
+            } else if (tradingMode && isActiveTurn && opp.hand.length > 0 && me.hand.length > 0) {
+              actionLabel = "Trocar";
+              canClick = true;
+            }
+
+            return (
+              <OpponentView 
+                key={opp.id} 
+                player={opp} 
+                isActiveTurn={isOppTurn}
+                actionLabel={actionLabel}
+                onActionClick={canClick ? () => handleOpponentClick(opp.id) : undefined}
+              />
+            );
+          })
         )}
       </div>
 
       {/* AREA 2: Mesa Central (Deck, Descarte, Info de Turno, Minha Área) */}
       <div className="flex-1 w-full flex flex-col relative overflow-hidden">
         
-        {/* Info do Turno */}
-        <div className="absolute top-4 left-1/2 -translate-x-1/2 z-10 bg-background/80 backdrop-blur px-4 py-1.5 rounded-full border shadow-sm">
-          <p className="text-sm font-semibold">
-            {isActiveTurn ? (
-              <span className="text-primary animate-pulse">Sua vez!</span>
+        {/* Info do Turno / Status do Jogo */}
+        <div className="absolute top-4 left-1/2 -translate-x-1/2 z-10 flex flex-col items-center gap-2 w-full px-4">
+          <div className="bg-background/90 backdrop-blur px-6 py-2 rounded-full border shadow-sm text-center">
+            {isPendingMyDiscard ? (
+              <span className="text-destructive font-bold animate-pulse text-sm">DESCARTE UMA CARTA AGORA!</span>
+            ) : state.pendingAction ? (
+              <span className="text-amber-500 font-bold text-sm">Pausado: Aguardando descarte...</span>
+            ) : isActiveTurn ? (
+              <span className="text-primary font-bold animate-pulse text-sm">Sua vez!</span>
             ) : (
-              <span className="text-muted-foreground">Vez de: {state.players[state.currentTurnPlayerId!]?.name}</span>
+              <span className="text-muted-foreground text-sm">Vez de: {state.players[state.currentTurnPlayerId!]?.name}</span>
             )}
-          </p>
+          </div>
+          
+          {/* Action Log (Mostra a última ação) */}
+          {state.actionLog.length > 0 && (
+            <div className="text-[11px] font-mono bg-black/70 text-white px-3 py-1 rounded-md opacity-80 max-w-sm text-center truncate">
+              {state.actionLog[state.actionLog.length - 1]}
+            </div>
+          )}
         </div>
 
         {/* Pilhas Centrais */}
-        <div className="flex-1 flex flex-col items-center justify-center gap-8 pt-8">
+        <div className="flex-1 flex flex-col items-center justify-center gap-8 pt-10">
           
           <div className="flex gap-8 items-center">
             {/* Pilha de Descarte */}
@@ -70,7 +132,7 @@ export function GameBoard({ state, myId, onDraw, onPlay, onTrade }: GameBoardPro
               {topDiscard ? (
                 <Card card={topDiscard} />
               ) : (
-                <div className="w-24 h-36 border-2 border-dashed border-border rounded-xl flex items-center justify-center opacity-50">
+                <div className="w-24 h-36 border-2 border-dashed border-border rounded-xl flex items-center justify-center opacity-50 bg-muted">
                   <span className="text-xs text-muted-foreground">Vazio</span>
                 </div>
               )}
@@ -94,17 +156,29 @@ export function GameBoard({ state, myId, onDraw, onPlay, onTrade }: GameBoardPro
             </div>
           </div>
           
-          {/* Controles Extras (Modo Troca) */}
-          {isActiveTurn && me.hand.length > 0 && opponents.length > 0 && (
-            <Button 
-              variant={tradingMode ? "default" : "outline"}
-              size="sm"
-              onClick={() => setTradingMode(!tradingMode)}
-              className="mt-2"
-            >
-              {tradingMode ? "Cancele a Escolha" : "Trocar Carta (Trade)"}
-            </Button>
-          )}
+          {/* Controles Extras (Modo Troca / Targeting) */}
+          <div className="h-10 flex items-center justify-center mt-2">
+            {(targetingCardId || tradingMode) && (
+              <div className="flex flex-col items-center">
+                <span className="text-xs text-primary font-bold animate-pulse mb-1">
+                  Selecione um oponente no topo!
+                </span>
+                <Button variant="outline" size="sm" onClick={cancelTargeting}>
+                  Cancelar Escolha
+                </Button>
+              </div>
+            )}
+
+            {isActiveTurn && !targetingCardId && !tradingMode && me.hand.length > 0 && opponents.length > 0 && (
+              <Button 
+                variant="outline"
+                size="sm"
+                onClick={() => setTradingMode(true)}
+              >
+                Trocar Carta (Trade)
+              </Button>
+            )}
+          </div>
 
         </div>
 
@@ -130,8 +204,8 @@ export function GameBoard({ state, myId, onDraw, onPlay, onTrade }: GameBoardPro
       <div className="h-1/4 max-h-[180px] w-full border-t bg-card flex flex-col shrink-0 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] z-20">
         <PlayerHand 
           hand={me.hand} 
-          isActiveTurn={isActiveTurn}
-          onPlayCard={onPlay}
+          isActiveTurn={isActiveTurn || isPendingMyDiscard}
+          onPlayCard={handlePlayCard}
         />
       </div>
 

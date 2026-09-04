@@ -16,34 +16,37 @@ export interface Player {
   id: string;
   name: string;
   isCreator: boolean;
-  // Mão oculta do jogador (quantas e quais cartas ele tem)
   hand: Card[];
-  // Área visível com os objetos travados e coringas
   objectArea: Card[]; 
+  skipNextTurn?: boolean; // Controle de bloqueio
 }
+
+export type PendingAction = {
+  type: 'discard';
+  playerId: string;
+  amount: 1;
+};
 
 export interface GameState {
   status: 'lobby' | 'playing' | 'finished';
   players: Record<string, Player>;
   creatorId: string | null;
-  
-  // Estruturas da mesa
   deck: Card[];
   discard: Card[];
-  
-  // Controle de turno e vitória
   currentTurnPlayerId: string | null;
   winnerId: string | null;
+  
+  actionLog: string[]; // Histórico de eventos
+  pendingAction: PendingAction | null; // Interrupção do fluxo de turno
 }
 
-// Mensagens enviadas do cliente para o servidor
 export type ClientMessage = 
   | { type: 'join'; name: string }
   | { type: 'start_game' }
-  // Ações futuras preparadas
   | { type: 'draw_card' }
   | { type: 'play_card'; cardId: string; targetId?: string }
-  | { type: 'trade_card'; targetPlayerId: string };
+  | { type: 'trade_card'; targetPlayerId: string }
+  | { type: 'discard_card'; cardId: string }; // Resposta a um pendingAction
 
 // Mensagens enviadas do servidor para o cliente
 export type ServerMessage = 

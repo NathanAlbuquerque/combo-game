@@ -5,11 +5,11 @@ import { Card } from "./Card";
 interface OpponentViewProps {
   player: Player;
   isActiveTurn: boolean;
-  onTradeClick?: () => void;
-  canTrade?: boolean;
+  onActionClick?: () => void;
+  actionLabel?: string;
 }
 
-export function OpponentView({ player, isActiveTurn, onTradeClick, canTrade }: OpponentViewProps) {
+export function OpponentView({ player, isActiveTurn, onActionClick, actionLabel }: OpponentViewProps) {
   return (
     <div className={`flex flex-col min-w-[140px] items-center p-3 rounded-xl border-2 transition-colors ${isActiveTurn ? 'border-primary bg-primary/5' : 'border-border bg-card'}`}>
       <div className="flex items-center gap-2 mb-2 w-full justify-between">
@@ -22,7 +22,6 @@ export function OpponentView({ player, isActiveTurn, onTradeClick, canTrade }: O
         <span className="text-xs bg-muted px-2 rounded-full font-mono">{player.hand.length} 🃏</span>
       </div>
 
-      {/* Resumo da área de objetos */}
       <div className="flex gap-1 h-16 w-full items-center justify-center bg-black/5 dark:bg-white/5 rounded-lg p-1 overflow-hidden">
         {player.objectArea.length === 0 ? (
           <span className="text-[10px] text-muted-foreground uppercase">Mesa vazia</span>
@@ -38,14 +37,21 @@ export function OpponentView({ player, isActiveTurn, onTradeClick, canTrade }: O
         )}
       </div>
 
-      {/* Botão de Trocar Carta (quando for o caso) */}
-      {canTrade && (
+      {/* Botões de Ação Dinâmicos (Trocar, Alvo de Efeito, etc) */}
+      {actionLabel && onActionClick && (
         <button 
-          onClick={onTradeClick}
+          onClick={onActionClick}
           className="mt-2 text-[10px] uppercase font-bold bg-primary text-primary-foreground px-3 py-1 rounded-full hover:opacity-80 active:scale-95 transition-transform"
         >
-          Trocar
+          {actionLabel}
         </button>
+      )}
+      
+      {/* Aviso de Pulou Turno */}
+      {player.skipNextTurn && (
+        <span className="mt-2 text-[10px] uppercase font-bold text-destructive bg-destructive/10 px-2 py-0.5 rounded">
+          Bloqueado
+        </span>
       )}
     </div>
   );
