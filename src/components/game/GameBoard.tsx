@@ -102,7 +102,7 @@ export function GameBoard({ state, myId, onDraw, onPlay, onTrade, onDiscard }: G
         
         {/* Info do Turno / Status do Jogo */}
         <div className="absolute top-4 left-1/2 -translate-x-1/2 z-10 flex flex-col items-center gap-2 w-full px-4">
-          <div className="bg-background/90 backdrop-blur px-6 py-2 rounded-full border shadow-sm text-center">
+          <div className="bg-background/90 backdrop-blur px-6 py-2 rounded-full border shadow-sm text-center transition-all duration-300">
             {me?.isEliminated ? (
               <span className="text-muted-foreground font-bold text-sm">Você foi eliminado 💀</span>
             ) : isPendingMyDiscard ? (
@@ -116,9 +116,12 @@ export function GameBoard({ state, myId, onDraw, onPlay, onTrade, onDiscard }: G
             )}
           </div>
           
-          {/* Action Log (Mostra a última ação) */}
+          {/* Action Log (Mostra a última ação com animação de entrada) */}
           {state.actionLog.length > 0 && (
-            <div className="text-[11px] font-mono bg-black/70 text-white px-3 py-1 rounded-md opacity-80 max-w-sm text-center truncate">
+            <div 
+              key={state.actionLog.length} 
+              className="text-[11px] font-mono bg-black/80 dark:bg-white/90 text-white dark:text-black px-4 py-1.5 rounded-full shadow-lg max-w-sm text-center truncate animate-in fade-in slide-in-from-top-2 duration-300"
+            >
               {state.actionLog[state.actionLog.length - 1]}
             </div>
           )}
@@ -127,33 +130,39 @@ export function GameBoard({ state, myId, onDraw, onPlay, onTrade, onDiscard }: G
         {/* Pilhas Centrais */}
         <div className="flex-1 flex flex-col items-center justify-center gap-8 pt-10">
           
-          <div className="flex gap-8 items-center">
-            {/* Pilha de Descarte */}
+          <div className="flex gap-12 items-center">
+            {/* Pilha de Descarte (Miniatura) */}
             <div className="flex flex-col items-center gap-2">
-              <span className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Descarte</span>
-              {topDiscard ? (
-                <Card card={topDiscard} />
-              ) : (
-                <div className="w-24 h-36 border-2 border-dashed border-border rounded-xl flex items-center justify-center opacity-50 bg-muted">
-                  <span className="text-xs text-muted-foreground">Vazio</span>
-                </div>
-              )}
+              <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest bg-muted px-2 py-0.5 rounded-full">Descarte</span>
+              <div className="h-[100px] flex items-center justify-center">
+                {topDiscard ? (
+                  <div className="animate-in zoom-in-90 duration-200">
+                    <Card card={topDiscard} size="small" />
+                  </div>
+                ) : (
+                  <div className="w-16 aspect-[5/7] border-2 border-dashed border-border rounded-xl flex items-center justify-center opacity-50 bg-muted">
+                    <span className="text-[8px] text-muted-foreground">Vazio</span>
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* Deck Principal */}
             <div className="flex flex-col items-center gap-2">
-              <span className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Deck ({state.deck.length})</span>
-              <div 
-                className={`transition-transform ${isActiveTurn ? 'hover:-translate-y-2 cursor-pointer drop-shadow-md ring-2 ring-primary ring-offset-2 ring-offset-background rounded-xl' : 'opacity-50 cursor-not-allowed grayscale'}`}
-                onClick={() => isActiveTurn && onDraw()}
-              >
-                {state.deck.length > 0 ? (
-                  <Card /> // Verso
-                ) : (
-                  <div className="w-24 h-36 border-2 border-dashed border-border rounded-xl flex items-center justify-center opacity-50 bg-muted">
-                    <span className="text-xs text-muted-foreground">Vazio</span>
-                  </div>
-                )}
+              <span className="text-[10px] font-bold text-primary uppercase tracking-widest bg-primary/10 px-2 py-0.5 rounded-full">Deck ({state.deck.length})</span>
+              <div className="h-[140px] flex items-center justify-center">
+                <div 
+                  className={`transition-transform duration-300 ${isActiveTurn ? 'hover:-translate-y-2 cursor-pointer drop-shadow-md ring-4 ring-primary/50 ring-offset-2 ring-offset-background rounded-xl scale-105' : 'opacity-50 cursor-not-allowed grayscale'}`}
+                  onClick={() => isActiveTurn && onDraw()}
+                >
+                  {state.deck.length > 0 ? (
+                    <Card /> // Verso
+                  ) : (
+                    <div className="w-28 sm:w-32 aspect-[5/7] border-2 border-dashed border-border rounded-xl flex items-center justify-center opacity-50 bg-muted">
+                      <span className="text-[10px] text-muted-foreground uppercase tracking-widest">Vazio</span>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           </div>

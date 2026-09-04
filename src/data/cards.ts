@@ -1,4 +1,4 @@
-import { ObjectCategory } from "@/types/game";
+import { ObjectCategory } from "../types/game";
 
 export const OBJECT_CARDS_DATA: Array<{ category: ObjectCategory; name: string; description: string }> = [
   // SEGURANÇA DIGITAL

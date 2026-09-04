@@ -130,17 +130,47 @@ export default function RoomPage() {
   if (gameState.status === "finished") {
     const winner = gameState.winnerId ? gameState.players[gameState.winnerId] : null;
     const isMe = winner?.id === myId;
+    
+    // Pegar categorias únicas do vencedor (ou de coringas)
+    const collectedCategories = new Set<string>();
+    let jokersCount = 0;
+    winner?.objectArea.forEach(c => {
+      if (c.type === 'object' && c.category) collectedCategories.add(c.category);
+      if (c.type === 'joker') jokersCount++;
+    });
+    
+    const catsArray = Array.from(collectedCategories);
+    for (let i = 0; i < jokersCount; i++) {
+       catsArray.push("CARTA CORINGA");
+    }
+
     return (
-      <div className="flex flex-col items-center justify-center min-h-[100dvh] bg-zinc-50 p-4">
-        <div className="bg-card text-card-foreground border p-8 rounded-3xl max-w-sm w-full text-center shadow-2xl flex flex-col items-center gap-4 animate-in zoom-in duration-500">
-          <span className="text-7xl mb-2">{isMe ? "🎉" : "🏆"}</span>
-          <h2 className="text-3xl font-black text-primary uppercase tracking-wider">Fim de Jogo!</h2>
-          <div className="my-4 py-4 border-y w-full">
+      <div className="flex flex-col items-center justify-center min-h-[100dvh] bg-zinc-50 dark:bg-black p-4">
+        <div className="bg-card text-card-foreground border p-8 rounded-3xl max-w-md w-full shadow-2xl flex flex-col items-center gap-4 animate-in zoom-in duration-500">
+          <span className="text-6xl mb-2">{isMe ? "🎉" : "🏆"}</span>
+          <h2 className="text-3xl font-black text-primary uppercase tracking-wider text-center">Fim de Jogo!</h2>
+          
+          <div className="my-2 py-4 border-y border-border w-full text-center">
             <p className="text-sm text-muted-foreground uppercase tracking-widest mb-1">O Vencedor é</p>
             <p className="text-4xl font-black text-foreground truncate px-2">{winner?.name}</p>
           </div>
-          {isMe && <p className="text-sm text-green-700 font-bold bg-green-100 px-4 py-2 rounded-full uppercase tracking-wider animate-pulse">Você venceu o Combo!</p>}
-          <Button onClick={() => router.push("/")} className="mt-4 w-full" size="lg">Sair da Partida</Button>
+          
+          {catsArray.length > 0 && (
+            <div className="w-full">
+              <p className="text-xs font-bold text-muted-foreground uppercase text-center mb-2">Categorias Reunidas</p>
+              <div className="flex flex-wrap gap-2 justify-center">
+                {catsArray.map((cat, i) => (
+                  <span key={i} className={`text-[10px] font-bold px-2 py-1 rounded-full ${cat === 'CARTA CORINGA' ? 'bg-gradient-to-r from-red-500 via-green-500 to-blue-500 text-white' : 'bg-primary/10 text-primary'}`}>
+                    {cat}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {isMe && <p className="text-sm text-green-700 font-bold bg-green-100 px-4 py-2 mt-2 rounded-full uppercase tracking-wider animate-pulse text-center">Você venceu o Combo!</p>}
+          
+          <Button onClick={() => router.push("/")} className="mt-6 w-full" size="lg">Voltar ao Lobby</Button>
         </div>
       </div>
     );
