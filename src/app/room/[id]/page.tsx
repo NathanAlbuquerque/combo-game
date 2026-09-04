@@ -5,6 +5,7 @@ import { useParams, useRouter, useSearchParams } from "next/navigation";
 import usePartySocket from "partysocket/react";
 import { Button } from "@/components/ui/button";
 import { GameState, ServerMessage } from "@/types/game";
+import { GameBoard } from "@/components/game/GameBoard";
 
 export default function RoomPage() {
   const router = useRouter();
@@ -17,7 +18,6 @@ export default function RoomPage() {
   const [gameState, setGameState] = useState<GameState | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  // Redireciona de volta se não tiver nome
   useEffect(() => {
     if (!playerName) {
       router.push("/");
@@ -28,23 +28,29 @@ export default function RoomPage() {
     host: "localhost:1999",
     room: roomId,
     onOpen(e) {
-      // Assim que conecta, envia a mensagem de join com o nome
       if (playerName) {
         socket.send(JSON.stringify({ type: "join", name: playerName }));
       }
     },
     onMessage(event) {
       const data = JSON.parse(event.data) as ServerMessage;
-      
       if (data.type === "error") {
-        setErrorMsg(data.message);
+        alert(data.message); // Usar alert nativo para erros não bloqueantes
+        // Se for um erro na entrada, a gente mostra tela de erro.
+        // Como não queremos travar a tela inteira por um "Não é seu turno",
+        // Só tratamos erro fatal se o gameState estiver nulo
+        setGameState((prev) => {
+          if (!prev) setErrorMsg(data.message);
+          return prev;
+        });
       } else if (data.type === "sync") {
         setGameState(data.state);
+        setErrorMsg(null);
       }
     }
   });
 
-  if (errorMsg) {
+  if (errorMsg && !gameState) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen bg-zinc-50 p-4">
         <div className="bg-destructive text-destructive-foreground p-6 rounded-lg max-w-sm text-center shadow-lg">
@@ -67,29 +73,32 @@ export default function RoomPage() {
   }
 
   const myId = socket.id;
-  const isCreator = gameState.creatorId === myId;
-  const playersList = Object.values(gameState.players);
 
-  const handleStartGame = () => {
-    socket.send(JSON.stringify({ type: "start_game" }));
-  };
+  // AÇÕES
+  const handleStartGame = () => socket.send(JSON.stringify({ type: "start_game" }));
+  const handleDraw = () => socket.send(JSON.stringify({ type: "draw_card" }));
+  const handlePlay = (cardId: string) => socket.send(JSON.stringify({ type: "play_card", cardId }));
+  const handleTrade = (targetPlayerId: string) => socket.send(JSON.stringify({ type: "trade_card", targetPlayerId }));
 
-  return (
-    <div className="flex flex-col items-center p-4 min-h-screen bg-zinc-50 dark:bg-black">
-      <header className="w-full max-w-3xl flex items-center justify-between py-6">
-        <div>
-          <h1 className="text-2xl font-bold">Sala: <span className="text-primary tracking-widest">{roomId}</span></h1>
-          <p className="text-sm text-muted-foreground">Status: {gameState.status === 'lobby' ? 'Aguardando jogadores' : 'Em jogo'}</p>
-        </div>
-        <Button variant="outline" onClick={() => router.push("/")}>Sair da Sala</Button>
-      </header>
+  // ESTADO: LOBBY
+  if (gameState.status === "lobby") {
+    const isCreator = gameState.creatorId === myId;
+    const playersList = Object.values(gameState.players);
 
-      <main className="w-full max-w-3xl grid grid-cols-1 md:grid-cols-3 gap-6">
-        {/* LOBBY / JOGADORES */}
-        <div className="col-span-1 md:col-span-2 bg-card border rounded-lg p-6 shadow-sm">
+    return (
+      <div className="flex flex-col items-center p-4 min-h-screen bg-zinc-50 dark:bg-black">
+        <header className="w-full max-w-3xl flex items-center justify-between py-6">
+          <div>
+            <h1 className="text-2xl font-bold">Sala: <span className="text-primary tracking-widest">{roomId}</span></h1>
+            <p className="text-sm text-muted-foreground">Aguardando jogadores...</p>
+          </div>
+          <Button variant="outline" onClick={() => router.push("/")}>Sair da Sala</Button>
+        </header>
+
+        <main className="w-full max-w-3xl bg-card border rounded-lg p-6 shadow-sm">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-xl font-semibold">Jogadores ({playersList.length})</h2>
-            {isCreator && gameState.status === 'lobby' && (
+            {isCreator && (
               <Button onClick={handleStartGame}>Iniciar Jogo</Button>
             )}
           </div>
@@ -105,23 +114,38 @@ export default function RoomPage() {
               </li>
             ))}
           </ul>
-        </div>
+        </main>
+      </div>
+    );
+  }
 
-        {/* ÁREA DE STATUS/JOGO (Placeholder) */}
-        <div className="col-span-1 bg-card border rounded-lg p-6 shadow-sm flex flex-col items-center justify-center text-center">
-          {gameState.status === 'lobby' ? (
-            <div className="text-muted-foreground">
-              <p className="mb-2">Aguardando o líder iniciar a partida...</p>
-              <div className="animate-spin w-6 h-6 border-2 border-primary border-t-transparent rounded-full mx-auto" />
-            </div>
-          ) : (
-            <div className="text-green-600">
-              <h3 className="font-bold text-xl mb-2">Jogo Iniciado!</h3>
-              <p className="text-sm">Área do jogo será implementada aqui.</p>
-            </div>
-          )}
+  // ESTADO: FINISHED
+  if (gameState.status === "finished") {
+    const winner = gameState.winnerId ? gameState.players[gameState.winnerId] : null;
+    const isMe = winner?.id === myId;
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[100dvh] bg-zinc-50 p-4">
+        <div className="bg-card text-card-foreground border p-8 rounded-2xl max-w-sm text-center shadow-2xl flex flex-col items-center gap-4 animate-in zoom-in duration-500">
+          <span className="text-6xl mb-4">{isMe ? "🎉" : "🏆"}</span>
+          <h2 className="text-3xl font-black text-primary">Temos um Vencedor!</h2>
+          <p className="text-lg">
+            O jogador <span className="font-bold">{winner?.name}</span> conseguiu montar o Combo primeiro!
+          </p>
+          {isMe && <p className="text-sm text-green-600 font-bold bg-green-100 px-3 py-1 rounded-full mt-2">Parabéns, você ganhou!</p>}
+          <Button onClick={() => router.push("/")} className="mt-6 w-full" size="lg">Sair da Partida</Button>
         </div>
-      </main>
-    </div>
+      </div>
+    );
+  }
+
+  // ESTADO: PLAYING
+  return (
+    <GameBoard 
+      state={gameState} 
+      myId={myId} 
+      onDraw={handleDraw} 
+      onPlay={handlePlay}
+      onTrade={handleTrade}
+    />
   );
 }
