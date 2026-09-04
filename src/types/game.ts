@@ -19,6 +19,7 @@ export interface Player {
   hand: Card[];
   objectArea: Card[]; 
   skipNextTurn?: boolean; // Controle de bloqueio
+  isEliminated?: boolean; // Jogador sem cartas perde
 }
 
 export type PendingAction = {

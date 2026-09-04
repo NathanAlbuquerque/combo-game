@@ -10,8 +10,9 @@ interface OpponentViewProps {
 }
 
 export function OpponentView({ player, isActiveTurn, onActionClick, actionLabel }: OpponentViewProps) {
+  const isDead = player.isEliminated;
   return (
-    <div className={`flex flex-col min-w-[140px] items-center p-3 rounded-xl border-2 transition-colors ${isActiveTurn ? 'border-primary bg-primary/5' : 'border-border bg-card'}`}>
+    <div className={`flex flex-col min-w-[140px] items-center p-3 rounded-xl border-2 transition-colors ${isActiveTurn ? 'border-primary bg-primary/5' : 'border-border bg-card'} ${isDead ? 'opacity-50 grayscale pointer-events-none' : ''}`}>
       <div className="flex items-center gap-2 mb-2 w-full justify-between">
         <div className="flex items-center gap-1 overflow-hidden">
           <UserCircle2 className={`w-5 h-5 shrink-0 ${isActiveTurn ? 'text-primary' : 'text-muted-foreground'}`} />
@@ -38,7 +39,7 @@ export function OpponentView({ player, isActiveTurn, onActionClick, actionLabel 
       </div>
 
       {/* Botões de Ação Dinâmicos (Trocar, Alvo de Efeito, etc) */}
-      {actionLabel && onActionClick && (
+      {actionLabel && onActionClick && !isDead && (
         <button 
           onClick={onActionClick}
           className="mt-2 text-[10px] uppercase font-bold bg-primary text-primary-foreground px-3 py-1 rounded-full hover:opacity-80 active:scale-95 transition-transform"
@@ -47,12 +48,16 @@ export function OpponentView({ player, isActiveTurn, onActionClick, actionLabel 
         </button>
       )}
       
-      {/* Aviso de Pulou Turno */}
-      {player.skipNextTurn && (
+      {/* Aviso de Pulou Turno ou Eliminado */}
+      {isDead ? (
+        <span className="mt-2 text-[10px] uppercase font-bold text-muted-foreground bg-muted px-2 py-0.5 rounded shadow-inner">
+          Eliminado 💀
+        </span>
+      ) : player.skipNextTurn ? (
         <span className="mt-2 text-[10px] uppercase font-bold text-destructive bg-destructive/10 px-2 py-0.5 rounded">
           Bloqueado
         </span>
-      )}
+      ) : null}
     </div>
   );
 }

@@ -39,7 +39,7 @@ export function GameBoard({ state, myId, onDraw, onPlay, onTrade, onDiscard }: G
     if (!card) return;
     
     const targetEffects = ['Rede de Apoio', 'Alerta de Phishing', 'Tomou Block!', 'Vídeo Deepfake', 'Esqueceu a Senha'];
-    if (card.type === 'effect' && targetEffects.includes(card.name)) {
+    if (card.type === 'effect' && card.name && targetEffects.includes(card.name)) {
       setTargetingCardId(cardId);
       setTradingMode(false); // desliga o trade se estivesse on
     } else {
@@ -103,7 +103,9 @@ export function GameBoard({ state, myId, onDraw, onPlay, onTrade, onDiscard }: G
         {/* Info do Turno / Status do Jogo */}
         <div className="absolute top-4 left-1/2 -translate-x-1/2 z-10 flex flex-col items-center gap-2 w-full px-4">
           <div className="bg-background/90 backdrop-blur px-6 py-2 rounded-full border shadow-sm text-center">
-            {isPendingMyDiscard ? (
+            {me?.isEliminated ? (
+              <span className="text-muted-foreground font-bold text-sm">Você foi eliminado 💀</span>
+            ) : isPendingMyDiscard ? (
               <span className="text-destructive font-bold animate-pulse text-sm">DESCARTE UMA CARTA AGORA!</span>
             ) : state.pendingAction ? (
               <span className="text-amber-500 font-bold text-sm">Pausado: Aguardando descarte...</span>

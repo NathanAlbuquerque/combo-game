@@ -106,12 +106,14 @@ export default class MainServer implements Party.Server {
     
     let currentIndex = playerIds.indexOf(this.state.currentTurnPlayerId);
     
-    // Procura o próximo jogador que NÃO tenha skipNextTurn
-    // Fazemos um loop limitado ao numero de jogadores pra não travar se todos estiverem skippados
     for (let i = 0; i < playerIds.length; i++) {
       currentIndex = (currentIndex + 1) % playerIds.length;
       const nextId = playerIds[currentIndex];
       const nextPlayer = this.state.players[nextId];
+      
+      if (nextPlayer.isEliminated) {
+        continue; // Pula os eliminados sumariamente
+      }
       
       if (nextPlayer.skipNextTurn) {
         nextPlayer.skipNextTurn = false;
@@ -121,6 +123,44 @@ export default class MainServer implements Party.Server {
         break;
       }
     }
+  }
+
+  private checkEliminations(): boolean {
+    if (this.state.status !== 'playing') return false;
+    
+    let activePlayers = 0;
+    let lastActiveId: string | null = null;
+    
+    for (const [id, player] of Object.entries(this.state.players)) {
+      if (!player.isEliminated && player.hand.length === 0) {
+        player.isEliminated = true;
+        this.addLog(`💀 ${player.name} ficou sem cartas e foi eliminado!`);
+        
+        if (this.state.pendingAction?.playerId === id) {
+          this.state.pendingAction = null; // Libera se o alvo morrer
+        }
+      }
+      
+      if (!player.isEliminated) {
+        activePlayers++;
+        lastActiveId = id;
+      }
+    }
+    
+    if (activePlayers === 1 && lastActiveId) {
+      this.state.winnerId = lastActiveId;
+      this.state.status = 'finished';
+      this.addLog(`🏆 ${this.state.players[lastActiveId].name} é o último sobrevivente e venceu o jogo!`);
+      return true;
+    }
+    
+    if (activePlayers === 0) {
+      this.state.status = 'finished';
+      this.addLog(`Empate catastrófico! Todos foram eliminados.`);
+      return true;
+    }
+    
+    return false;
   }
 
   private checkVictory(playerId: string): boolean {
@@ -181,6 +221,7 @@ export default class MainServer implements Party.Server {
           hand: [],
           objectArea: [],
           skipNextTurn: false,
+          isEliminated: false,
         };
 
         this.broadcastSync();
@@ -245,6 +286,7 @@ export default class MainServer implements Party.Server {
         this.state.pendingAction = null;
         this.addLog(`${targetPlayer.name} escolheu descartar uma carta.`);
         
+        this.checkEliminations();
         this.passTurn();
         this.broadcastSync();
         return;
@@ -281,6 +323,7 @@ export default class MainServer implements Party.Server {
             me.hand.push(card);
             this.addLog(`${me.name} comprou uma carta do baralho.`);
           }
+          this.checkEliminations();
           this.passTurn();
           this.broadcastSync();
           return;
@@ -317,6 +360,7 @@ export default class MainServer implements Party.Server {
 
           this.addLog(`${me.name} realizou uma troca aleatória de cartas com ${target.name}.`);
 
+          this.checkEliminations();
           this.passTurn();
           this.broadcastSync();
           return;
@@ -454,6 +498,7 @@ export default class MainServer implements Party.Server {
             this.state.discard.push(card);
           }
 
+          this.checkEliminations();
           if (!hasWon && endsTurn) {
             this.passTurn();
           }
@@ -465,6 +510,11 @@ export default class MainServer implements Party.Server {
     } catch (e) {
       console.error("Erro ao processar mensagem", e);
     }
+  }
+
+  private syncState() {
+    this.checkEliminations();
+    this.broadcastSync();
   }
 
   onClose(conn: Party.Connection) {
