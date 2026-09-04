@@ -34,7 +34,7 @@ export default function RoomPage() {
   }, [toastMsg]);
 
   const socket = usePartySocket({
-    host: "localhost:1999",
+    host: process.env.NEXT_PUBLIC_PARTYKIT_HOST || "localhost:1999",
     room: roomId,
     onOpen(e) {
       if (playerName) {
