@@ -3,6 +3,7 @@ import { OpponentView } from "./OpponentView";
 import { PlayerHand } from "./PlayerHand";
 import { Card } from "./Card";
 import { Button } from "@/components/ui/button";
+import { UserCircle2, HelpCircle, X } from "lucide-react";
 import { useState } from "react";
 
 interface GameBoardProps {
@@ -17,6 +18,7 @@ interface GameBoardProps {
 export function GameBoard({ state, myId, onDraw, onPlay, onTrade, onDiscard }: GameBoardProps) {
   const [tradingMode, setTradingMode] = useState(false);
   const [targetingCardId, setTargetingCardId] = useState<string | null>(null);
+  const [isHelpOpen, setIsHelpOpen] = useState(false);
 
   const me = state.players[myId];
   const opponents = Object.values(state.players).filter((p) => p.id !== myId);
@@ -101,30 +103,40 @@ export function GameBoard({ state, myId, onDraw, onPlay, onTrade, onDiscard }: G
       <div className="flex-1 w-full flex flex-col relative overflow-hidden">
         
         {/* Info do Turno / Status do Jogo */}
-        <div className="absolute top-4 left-1/2 -translate-x-1/2 z-10 flex flex-col items-center gap-2 w-full px-4">
-          <div className="bg-background/90 backdrop-blur px-6 py-2 rounded-full border shadow-sm text-center transition-all duration-300">
-            {me?.isEliminated ? (
-              <span className="text-muted-foreground font-bold text-sm">Você foi eliminado 💀</span>
-            ) : isPendingMyDiscard ? (
-              <span className="text-destructive font-bold animate-pulse text-sm">DESCARTE UMA CARTA AGORA!</span>
-            ) : state.pendingAction ? (
-              <span className="text-amber-500 font-bold text-sm">Pausado: Aguardando descarte...</span>
-            ) : isActiveTurn ? (
-              <span className="text-primary font-bold animate-pulse text-sm">Sua vez!</span>
-            ) : (
-              <span className="text-muted-foreground text-sm">Vez de: {state.players[state.currentTurnPlayerId!]?.name}</span>
-            )}
+        <div className="absolute top-4 left-1/2 -translate-x-1/2 z-10 flex w-full max-w-xl px-4 justify-between items-start">
+          <div className="flex-1 flex justify-center">
+            <div className="bg-background/90 backdrop-blur px-6 py-2 rounded-full border shadow-sm text-center transition-all duration-300 flex flex-col items-center gap-2">
+              {me?.isEliminated ? (
+                <span className="text-muted-foreground font-bold text-sm">Você foi eliminado 💀</span>
+              ) : isPendingMyDiscard ? (
+                <span className="text-destructive font-bold animate-pulse text-sm">DESCARTE UMA CARTA AGORA!</span>
+              ) : state.pendingAction ? (
+                <span className="text-amber-500 font-bold text-sm">Pausado: Aguardando descarte...</span>
+              ) : isActiveTurn ? (
+                <span className="text-primary font-bold animate-pulse text-sm">Sua vez!</span>
+              ) : (
+                <span className="text-muted-foreground text-sm">Vez de: {state.players[state.currentTurnPlayerId!]?.name}</span>
+              )}
+              
+              {/* Action Log (Mostra a última ação com animação de entrada) */}
+              {state.actionLog.length > 0 && (
+                <div 
+                  key={state.actionLog.length} 
+                  className="text-[11px] font-mono bg-black/80 dark:bg-white/90 text-white dark:text-black px-4 py-1.5 rounded-full shadow-lg max-w-sm text-center truncate animate-in fade-in slide-in-from-top-2 duration-300"
+                >
+                  {state.actionLog[state.actionLog.length - 1]}
+                </div>
+              )}
+            </div>
           </div>
           
-          {/* Action Log (Mostra a última ação com animação de entrada) */}
-          {state.actionLog.length > 0 && (
-            <div 
-              key={state.actionLog.length} 
-              className="text-[11px] font-mono bg-black/80 dark:bg-white/90 text-white dark:text-black px-4 py-1.5 rounded-full shadow-lg max-w-sm text-center truncate animate-in fade-in slide-in-from-top-2 duration-300"
-            >
-              {state.actionLog[state.actionLog.length - 1]}
-            </div>
-          )}
+          {/* Botão de Ajuda */}
+          <button 
+            onClick={() => setIsHelpOpen(true)}
+            className="shrink-0 bg-card border rounded-full p-2 shadow-sm hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
+          >
+            <HelpCircle className="w-5 h-5" />
+          </button>
         </div>
 
         {/* Pilhas Centrais */}
@@ -219,6 +231,49 @@ export function GameBoard({ state, myId, onDraw, onPlay, onTrade, onDiscard }: G
           onPlayCard={handlePlayCard}
         />
       </div>
+
+      {/* MODAL COMO JOGAR */}
+      {isHelpOpen && (
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-card border text-card-foreground p-6 rounded-2xl max-w-sm w-full shadow-2xl relative animate-in zoom-in-95 duration-200">
+            <button 
+              onClick={() => setIsHelpOpen(false)}
+              className="absolute top-4 right-4 text-muted-foreground hover:text-foreground"
+            >
+              <X className="w-5 h-5" />
+            </button>
+            <h3 className="text-xl font-black text-primary uppercase tracking-wider mb-4 flex items-center gap-2">
+              <HelpCircle className="w-6 h-6" />
+              Como Jogar
+            </h3>
+            
+            <div className="space-y-4 text-sm">
+              <div>
+                <strong className="text-foreground block mb-1">1. Objetivo Principal</strong>
+                <p className="text-muted-foreground leading-snug">
+                  Seja o primeiro a baixar <span className="text-primary font-bold">5 categorias diferentes</span> de objetos na sua área da mesa.
+                </p>
+              </div>
+              
+              <div>
+                <strong className="text-foreground block mb-1">2. No Seu Turno</strong>
+                <p className="text-muted-foreground leading-snug">
+                  Você pode escolher uma ação: comprar uma carta do deck principal, jogar (baixar um objeto novo na mesa ou ativar um efeito da sua mão) ou trocar cartas.
+                </p>
+              </div>
+              
+              <div>
+                <strong className="text-foreground block mb-1">3. Coringas Mágicos</strong>
+                <p className="text-muted-foreground leading-snug">
+                  As cartas Coringas valem por <span className="font-bold underline">qualquer</span> categoria que você ainda não possua na sua mesa, ajudando muito no combo final.
+                </p>
+              </div>
+            </div>
+
+            <Button onClick={() => setIsHelpOpen(false)} className="w-full mt-6">Entendi!</Button>
+          </div>
+        </div>
+      )}
 
     </div>
   );

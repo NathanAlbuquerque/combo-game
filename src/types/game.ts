@@ -53,7 +53,8 @@ export type ClientMessage =
   | { type: 'draw_card' }
   | { type: 'play_card'; cardId: string; targetId?: string }
   | { type: 'trade_card'; targetPlayerId: string }
-  | { type: 'discard_card'; cardId: string }; // Resposta a um pendingAction
+  | { type: 'discard_card'; cardId: string }
+  | { type: 'return_to_lobby' };
 
 // Mensagens enviadas do servidor para o cliente
 export type ServerMessage = 

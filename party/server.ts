@@ -487,6 +487,36 @@ export default class MainServer implements Party.Server {
         }
       }
 
+      // ==========================================
+      // REINICIAR PARTIDA
+      // ==========================================
+      if (parsed.type === "return_to_lobby") {
+        if (this.state.status !== "finished") {
+          sender.send(JSON.stringify({ type: "error", message: "A partida precisa terminar primeiro." }));
+          return;
+        }
+
+        // Reseta tudo, mantém os jogadores conectados
+        this.state.status = "lobby";
+        this.state.deck = [];
+        this.state.discard = [];
+        this.state.currentTurnPlayerId = null;
+        this.state.winnerId = null;
+        this.state.actionLog = [];
+        this.state.pendingAction = null;
+
+        for (const pid of Object.keys(this.state.players)) {
+          const player = this.state.players[pid];
+          player.hand = [];
+          player.objectArea = [];
+          player.skipNextTurn = false;
+          player.isEliminated = false;
+        }
+
+        this.syncState();
+        return;
+      }
+
     } catch (e) {
       console.error("Erro ao processar mensagem", e);
     }

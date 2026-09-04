@@ -170,7 +170,7 @@ export default function RoomPage() {
 
           {isMe && <p className="text-sm text-green-700 font-bold bg-green-100 px-4 py-2 mt-2 rounded-full uppercase tracking-wider animate-pulse text-center">Você venceu o Combo!</p>}
           
-          <Button onClick={() => router.push("/")} className="mt-6 w-full" size="lg">Voltar ao Lobby</Button>
+          <Button onClick={() => socket.send(JSON.stringify({ type: "return_to_lobby" }))} className="mt-6 w-full" size="lg">Voltar ao Lobby</Button>
         </div>
       </div>
     );
