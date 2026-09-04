@@ -28,14 +28,13 @@ export function Card({ card, size = "normal", onClick, selected }: CardProps) {
     );
   }
 
-  // Cores dinâmicas por categoria para melhorar UX
   const catColors: Record<string, string> = {
-    cat1: "bg-red-500",
-    cat2: "bg-blue-500",
-    cat3: "bg-green-500",
-    cat4: "bg-yellow-500",
-    cat5: "bg-purple-500",
-    cat6: "bg-orange-500",
+    "Segurança Digital": "bg-red-500",
+    "Privacidade": "bg-blue-500",
+    "Pensamento Crítico": "bg-green-500",
+    "Cidadania Digital": "bg-yellow-500",
+    "Ferramentas Digitais": "bg-purple-500",
+    "Inteligência Artificial": "bg-orange-500",
   };
 
   return (

@@ -1,4 +1,4 @@
-export type ObjectCategory = 'cat1' | 'cat2' | 'cat3' | 'cat4' | 'cat5' | 'cat6';
+export type ObjectCategory = 'Segurança Digital' | 'Privacidade' | 'Pensamento Crítico' | 'Cidadania Digital' | 'Ferramentas Digitais' | 'Inteligência Artificial';
 
 export type CardType = 'object' | 'effect' | 'joker';
 

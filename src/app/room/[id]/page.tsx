@@ -24,6 +24,15 @@ export default function RoomPage() {
     }
   }, [playerName, router]);
 
+  const [toastMsg, setToastMsg] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (toastMsg) {
+      const timer = setTimeout(() => setToastMsg(null), 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [toastMsg]);
+
   const socket = usePartySocket({
     host: "localhost:1999",
     room: roomId,
@@ -35,10 +44,7 @@ export default function RoomPage() {
     onMessage(event) {
       const data = JSON.parse(event.data) as ServerMessage;
       if (data.type === "error") {
-        alert(data.message); // Usar alert nativo para erros não bloqueantes
-        // Se for um erro na entrada, a gente mostra tela de erro.
-        // Como não queremos travar a tela inteira por um "Não é seu turno",
-        // Só tratamos erro fatal se o gameState estiver nulo
+        setToastMsg(data.message);
         setGameState((prev) => {
           if (!prev) setErrorMsg(data.message);
           return prev;
@@ -125,27 +131,34 @@ export default function RoomPage() {
     const isMe = winner?.id === myId;
     return (
       <div className="flex flex-col items-center justify-center min-h-[100dvh] bg-zinc-50 p-4">
-        <div className="bg-card text-card-foreground border p-8 rounded-2xl max-w-sm text-center shadow-2xl flex flex-col items-center gap-4 animate-in zoom-in duration-500">
-          <span className="text-6xl mb-4">{isMe ? "🎉" : "🏆"}</span>
-          <h2 className="text-3xl font-black text-primary">Temos um Vencedor!</h2>
-          <p className="text-lg">
-            O jogador <span className="font-bold">{winner?.name}</span> conseguiu montar o Combo primeiro!
-          </p>
-          {isMe && <p className="text-sm text-green-600 font-bold bg-green-100 px-3 py-1 rounded-full mt-2">Parabéns, você ganhou!</p>}
-          <Button onClick={() => router.push("/")} className="mt-6 w-full" size="lg">Sair da Partida</Button>
+        <div className="bg-card text-card-foreground border p-8 rounded-3xl max-w-sm w-full text-center shadow-2xl flex flex-col items-center gap-4 animate-in zoom-in duration-500">
+          <span className="text-7xl mb-2">{isMe ? "🎉" : "🏆"}</span>
+          <h2 className="text-3xl font-black text-primary uppercase tracking-wider">Fim de Jogo!</h2>
+          <div className="my-4 py-4 border-y w-full">
+            <p className="text-sm text-muted-foreground uppercase tracking-widest mb-1">O Vencedor é</p>
+            <p className="text-4xl font-black text-foreground truncate px-2">{winner?.name}</p>
+          </div>
+          {isMe && <p className="text-sm text-green-700 font-bold bg-green-100 px-4 py-2 rounded-full uppercase tracking-wider animate-pulse">Você venceu o Combo!</p>}
+          <Button onClick={() => router.push("/")} className="mt-4 w-full" size="lg">Sair da Partida</Button>
         </div>
       </div>
     );
   }
 
-  // ESTADO: PLAYING
   return (
-    <GameBoard 
-      state={gameState} 
-      myId={myId} 
-      onDraw={handleDraw} 
-      onPlay={handlePlay}
-      onTrade={handleTrade}
-    />
+    <>
+      {toastMsg && (
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 bg-destructive text-destructive-foreground px-4 py-2 rounded-full shadow-lg animate-in slide-in-from-top-4 font-semibold text-sm">
+          {toastMsg}
+        </div>
+      )}
+      <GameBoard 
+        state={gameState} 
+        myId={myId} 
+        onDraw={handleDraw} 
+        onPlay={handlePlay}
+        onTrade={handleTrade}
+      />
+    </>
   );
 }

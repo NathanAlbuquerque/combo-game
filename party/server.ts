@@ -3,7 +3,14 @@ import { GameState, ClientMessage, ServerMessage, Card, ObjectCategory } from ".
 
 function generateDeck(): Card[] {
   const deck: Card[] = [];
-  const categories: ObjectCategory[] = ['cat1', 'cat2', 'cat3', 'cat4', 'cat5', 'cat6'];
+  const categories: ObjectCategory[] = [
+    'Segurança Digital', 
+    'Privacidade', 
+    'Pensamento Crítico', 
+    'Cidadania Digital', 
+    'Ferramentas Digitais', 
+    'Inteligência Artificial'
+  ];
   let idCounter = 1;
 
   // 30 Objetos (5 por categoria)
@@ -13,7 +20,7 @@ function generateDeck(): Card[] {
         id: `obj_${idCounter++}`,
         type: 'object',
         category: cat,
-        name: `Objeto ${cat.toUpperCase()} - ${i + 1}`,
+        name: `${cat} Nvl ${i + 1}`,
       });
     }
   });

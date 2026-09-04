@@ -11,8 +11,9 @@ export function PlayerHand({ hand, isActiveTurn, onPlayCard }: PlayerHandProps) 
   return (
     <div className="w-full flex justify-center items-end px-4 pt-4 pb-2">
       {hand.length === 0 ? (
-        <div className="h-36 flex items-center justify-center text-muted-foreground text-sm uppercase tracking-wider">
-          Mão Vazia
+        <div className="h-36 flex flex-col items-center justify-center text-muted-foreground">
+          <span className="text-sm uppercase tracking-wider font-bold mb-1">Mão Vazia</span>
+          {isActiveTurn && <span className="text-xs text-primary animate-pulse">Compre uma carta do baralho!</span>}
         </div>
       ) : (
         <div className="flex relative items-end" style={{ width: Math.min(hand.length * 60 + 40, 100) + '%' }}>
@@ -24,16 +25,18 @@ export function PlayerHand({ hand, isActiveTurn, onPlayCard }: PlayerHandProps) 
             return (
               <div 
                 key={card.id} 
-                className="relative -ml-6 first:ml-0 transition-transform duration-200 hover:-translate-y-6 hover:z-50 focus-within:z-50"
+                className={`relative -ml-6 first:ml-0 transition-transform duration-200 ${isActiveTurn ? 'hover:-translate-y-6 hover:z-50 focus-within:z-50 cursor-pointer' : 'opacity-70 grayscale cursor-not-allowed'}`}
                 style={{ 
                   zIndex: index,
                   transform: `rotate(${rotation}deg) translateY(${translateY}px)` 
                 }}
               >
-                <Card 
-                  card={card} 
-                  onClick={() => isActiveTurn && onPlayCard(card.id)} 
-                />
+                <div className={isActiveTurn ? "" : "pointer-events-none"}>
+                  <Card 
+                    card={card} 
+                    onClick={() => isActiveTurn && onPlayCard(card.id)} 
+                  />
+                </div>
               </div>
             );
           })}

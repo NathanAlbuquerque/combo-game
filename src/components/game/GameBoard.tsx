@@ -80,13 +80,13 @@ export function GameBoard({ state, myId, onDraw, onPlay, onTrade }: GameBoardPro
             <div className="flex flex-col items-center gap-2">
               <span className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Deck ({state.deck.length})</span>
               <div 
-                className={`transition-transform ${isActiveTurn ? 'hover:-translate-y-2 cursor-pointer' : 'opacity-80'}`}
+                className={`transition-transform ${isActiveTurn ? 'hover:-translate-y-2 cursor-pointer drop-shadow-md ring-2 ring-primary ring-offset-2 ring-offset-background rounded-xl' : 'opacity-50 cursor-not-allowed grayscale'}`}
                 onClick={() => isActiveTurn && onDraw()}
               >
                 {state.deck.length > 0 ? (
                   <Card /> // Verso
                 ) : (
-                  <div className="w-24 h-36 border-2 border-dashed border-border rounded-xl flex items-center justify-center opacity-50">
+                  <div className="w-24 h-36 border-2 border-dashed border-border rounded-xl flex items-center justify-center opacity-50 bg-muted">
                     <span className="text-xs text-muted-foreground">Vazio</span>
                   </div>
                 )}
