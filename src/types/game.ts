@@ -43,7 +43,7 @@ export type ClientMessage =
   // Ações futuras preparadas
   | { type: 'draw_card' }
   | { type: 'play_card'; cardId: string; targetId?: string }
-  | { type: 'trade_card'; myCardId: string; targetPlayerId: string; targetCardId: string };
+  | { type: 'trade_card'; targetPlayerId: string };
 
 // Mensagens enviadas do servidor para o cliente
 export type ServerMessage = 

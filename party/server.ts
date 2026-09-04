@@ -69,10 +69,52 @@ export default class MainServer implements Party.Server {
     console.log(`Conexão estabelecida: ${conn.id} na sala ${this.room.id}`);
   }
 
+  private passTurn() {
+    if (!this.state.currentTurnPlayerId) return;
+    const playerIds = Object.keys(this.state.players);
+    if (playerIds.length === 0) return;
+    
+    const currentIndex = playerIds.indexOf(this.state.currentTurnPlayerId);
+    const nextIndex = (currentIndex + 1) % playerIds.length;
+    this.state.currentTurnPlayerId = playerIds[nextIndex];
+  }
+
+  private checkVictory(playerId: string) {
+    const p = this.state.players[playerId];
+    if (!p) return;
+    const uniqueCategories = new Set<string>();
+    let jokersCount = 0;
+    
+    for (const card of p.objectArea) {
+      if (card.type === 'joker') {
+        jokersCount++;
+      } else if (card.type === 'object' && card.category) {
+        uniqueCategories.add(card.category);
+      }
+    }
+    
+    if (uniqueCategories.size + jokersCount >= 5) {
+      this.state.winnerId = playerId;
+      this.state.status = 'finished';
+    }
+  }
+
+  private drawOneCard(): Card | null {
+    if (this.state.deck.length === 0) {
+      if (this.state.discard.length === 0) return null;
+      this.state.deck = shuffleDeck(this.state.discard);
+      this.state.discard = [];
+    }
+    return this.state.deck.pop() || null;
+  }
+
   onMessage(message: string, sender: Party.Connection) {
     try {
       const parsed = JSON.parse(message) as ClientMessage;
 
+      // ==========================================
+      // LÓGICA DE LOBBY & INÍCIO
+      // ==========================================
       if (parsed.type === "join") {
         if (this.state.status !== "lobby") {
           sender.send(JSON.stringify({ type: "error", message: "A partida já começou!" }));
@@ -93,10 +135,10 @@ export default class MainServer implements Party.Server {
         };
 
         this.broadcastSync();
+        return;
       }
 
       if (parsed.type === "start_game") {
-        // Validações
         if (this.state.status !== "lobby") {
           sender.send(JSON.stringify({ type: "error", message: "A partida já está em andamento." }));
           return;
@@ -110,40 +152,118 @@ export default class MainServer implements Party.Server {
         const playerIds = Object.keys(this.state.players);
         if (playerIds.length === 0) return;
 
-        // 1. Gera o baralho completo (47 cartas)
         const newDeck = generateDeck();
-        
-        // 2. Embaralha
         const shuffledDeck = shuffleDeck(newDeck);
 
-        // 3. Distribui 3 cartas para cada jogador conectado
         for (const pid of playerIds) {
           const player = this.state.players[pid];
-          // Remove 3 cartas do topo do baralho e coloca na mão do jogador
           player.hand = shuffledDeck.splice(-3, 3);
         }
 
-        // 4. Atualiza o estado
         this.state.deck = shuffledDeck;
         this.state.status = "playing";
-        
-        // Define o líder (ou o primeiro a entrar) como o jogador atual
         this.state.currentTurnPlayerId = this.state.creatorId;
 
-        // 5. Broadcast para todo mundo
         this.broadcastSync();
+        return;
       }
 
-      if (parsed.type === "draw_card") {
-        // Futuro
-      }
+      // ==========================================
+      // LÓGICA DE TURNO E AÇÕES
+      // ==========================================
+      
+      const gameActions = ["draw_card", "play_card", "trade_card"];
+      if (gameActions.includes(parsed.type)) {
+        if (this.state.status !== "playing") {
+          sender.send(JSON.stringify({ type: "error", message: "O jogo não está em andamento." }));
+          return;
+        }
 
-      if (parsed.type === "play_card") {
-        // Futuro
-      }
+        if (sender.id !== this.state.currentTurnPlayerId) {
+          sender.send(JSON.stringify({ type: "error", message: "Não é o seu turno!" }));
+          return;
+        }
 
-      if (parsed.type === "trade_card") {
-        // Futuro
+        const me = this.state.players[sender.id];
+
+        if (parsed.type === "draw_card") {
+          const card = this.drawOneCard();
+          if (card) {
+            me.hand.push(card);
+          }
+          this.passTurn();
+          this.broadcastSync();
+          return;
+        }
+
+        if (parsed.type === "play_card") {
+          const cardIndex = me.hand.findIndex(c => c.id === parsed.cardId);
+          if (cardIndex === -1) {
+            sender.send(JSON.stringify({ type: "error", message: "Carta não encontrada na sua mão." }));
+            return;
+          }
+          
+          const card = me.hand[cardIndex];
+          
+          if (card.type === 'object') {
+            const hasCategory = me.objectArea.some(c => c.category === card.category);
+            if (hasCategory) {
+              sender.send(JSON.stringify({ type: "error", message: "Você já possui um objeto dessa categoria na sua área." }));
+              return;
+            }
+            me.hand.splice(cardIndex, 1);
+            me.objectArea.push(card);
+            this.checkVictory(me.id);
+          } 
+          else if (card.type === 'joker') {
+            me.hand.splice(cardIndex, 1);
+            me.objectArea.push(card);
+            this.checkVictory(me.id);
+          } 
+          else if (card.type === 'effect') {
+            me.hand.splice(cardIndex, 1);
+            this.state.discard.push(card);
+            // TODO: implementar lógica específica de efeitos no futuro
+          }
+
+          if (this.state.status !== 'finished') {
+            this.passTurn();
+          }
+          this.broadcastSync();
+          return;
+        }
+
+        if (parsed.type === "trade_card") {
+          const target = this.state.players[parsed.targetPlayerId];
+          if (!target) {
+            sender.send(JSON.stringify({ type: "error", message: "Jogador alvo não encontrado." }));
+            return;
+          }
+          
+          if (me.id === target.id) {
+             sender.send(JSON.stringify({ type: "error", message: "Você não pode trocar cartas com você mesmo." }));
+             return;
+          }
+
+          if (me.hand.length === 0 || target.hand.length === 0) {
+            sender.send(JSON.stringify({ type: "error", message: "Ambos os jogadores devem possuir cartas na mão para a troca." }));
+            return;
+          }
+
+          // Troca aleatória (sem intervenção do cliente)
+          const myCardIndex = Math.floor(Math.random() * me.hand.length);
+          const targetCardIndex = Math.floor(Math.random() * target.hand.length);
+
+          const myCard = me.hand.splice(myCardIndex, 1)[0];
+          const targetCard = target.hand.splice(targetCardIndex, 1)[0];
+
+          me.hand.push(targetCard);
+          target.hand.push(myCard);
+
+          this.passTurn();
+          this.broadcastSync();
+          return;
+        }
       }
 
     } catch (e) {
@@ -157,19 +277,27 @@ export default class MainServer implements Party.Server {
     if (this.state.players[conn.id]) {
       delete this.state.players[conn.id];
       
-      if (this.state.creatorId === conn.id) {
-        const remainingPlayers = Object.values(this.state.players);
-        if (remainingPlayers.length > 0) {
+      // Se a sala esvaziar completamente
+      const remainingPlayers = Object.values(this.state.players);
+      if (remainingPlayers.length === 0) {
+        this.state.creatorId = null;
+        this.state.status = "lobby";
+        this.state.deck = [];
+        this.state.discard = [];
+        this.state.currentTurnPlayerId = null;
+        this.state.winnerId = null;
+      } else {
+        // Se o líder saiu, passa a liderança e tenta não quebrar o jogo
+        if (this.state.creatorId === conn.id) {
           this.state.creatorId = remainingPlayers[0].id;
           remainingPlayers[0].isCreator = true;
-        } else {
-          // Reset da sala caso o criador saia e não tenha ninguém
-          this.state.creatorId = null;
-          this.state.status = "lobby";
-          this.state.deck = [];
-          this.state.discard = [];
-          this.state.currentTurnPlayerId = null;
-          this.state.winnerId = null;
+        }
+        
+        // Se quem saiu era o jogador do turno, passa a vez
+        if (this.state.currentTurnPlayerId === conn.id && this.state.status === "playing") {
+          // A função passTurn() não funciona se o id atual não existe na lista.
+          // Como já foi deletado, setamos para o próximo disponível
+          this.state.currentTurnPlayerId = remainingPlayers[0].id;
         }
       }
       
