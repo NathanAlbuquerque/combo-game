@@ -1,0 +1,5 @@
+{
+  "name": "combo",
+  "main": "party/server.ts",
+  "serve": "public"
+}

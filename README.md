@@ -24,9 +24,14 @@ A pasta `src/` contém a lógica principal do jogo, dividida da seguinte forma:
    npm install
    ```
 
-2. Execute o servidor de desenvolvimento:
+2. Em um terminal, inicie o servidor PartyKit (porta 1999):
+   ```bash
+   npm run party
+   ```
+
+3. Em outro terminal, execute o servidor Next.js:
    ```bash
    npm run dev
    ```
 
-3. Abra [http://localhost:3000](http://localhost:3000) no seu navegador para ver o resultado.
+4. Abra [http://localhost:3000](http://localhost:3000) no seu navegador para ver o resultado e testar a conexão com a PartyKit room `lobby`.
