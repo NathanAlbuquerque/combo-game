@@ -79,6 +79,43 @@ export default class MainServer implements Party.Server {
     console.log(`Conexão estabelecida: ${conn.id} na sala ${this.room.id}`);
   }
 
+  onClose(conn: Party.Connection) {
+    console.log(`Conexão fechada: ${conn.id}`);
+    if (this.state.status === "playing") {
+      this.addLog(`O jogador ${this.state.players[conn.id]?.name || conn.id} desconectou.`);
+      this.reclaimPlayerCards(conn.id);
+      this.checkEliminations();
+      this.broadcastSync();
+    } else {
+      delete this.state.players[conn.id];
+      if (this.state.creatorId === conn.id) {
+        const remaining = Object.keys(this.state.players);
+        this.state.creatorId = remaining.length > 0 ? remaining[0] : null;
+      }
+      this.broadcastSync();
+    }
+  }
+
+  private reclaimPlayerCards(playerId: string) {
+    const player = this.state.players[playerId];
+    if (!player || player.isEliminated) return;
+
+    const recoveredCards = [...player.hand, ...player.objectArea];
+    player.hand = [];
+    player.objectArea = [];
+    player.isEliminated = true;
+
+    if (recoveredCards.length > 0) {
+      this.state.deck.push(...recoveredCards);
+      this.state.deck = shuffleDeck(this.state.deck);
+      this.addLog(`Cartas de ${player.name} retornaram ao baralho.`);
+    }
+
+    if (this.state.currentTurnPlayerId === playerId) {
+      this.passTurn();
+    }
+  }
+
   private passTurn() {
     if (!this.state.currentTurnPlayerId) return;
     const playerIds = Object.keys(this.state.players);
@@ -113,12 +150,13 @@ export default class MainServer implements Party.Server {
     
     for (const [id, player] of Object.entries(this.state.players)) {
       if (!player.isEliminated && player.hand.length === 0) {
-        player.isEliminated = true;
         this.addLog(`💀 ${player.name} ficou sem cartas e foi eliminado!`);
         
         if (this.state.pendingAction?.playerId === id) {
           this.state.pendingAction = null; // Libera se o alvo morrer
         }
+
+        this.reclaimPlayerCards(id);
       }
       
       if (!player.isEliminated) {
@@ -127,6 +165,7 @@ export default class MainServer implements Party.Server {
       }
     }
     
+    // DETECÇÃO DE W.O.
     if (activePlayers === 1 && lastActiveId) {
       this.state.winnerId = lastActiveId;
       this.state.status = 'finished';
@@ -168,10 +207,12 @@ export default class MainServer implements Party.Server {
 
   private drawOneCard(): Card | null {
     if (this.state.deck.length === 0) {
-      if (this.state.discard.length === 0) return null;
-      this.state.deck = shuffleDeck(this.state.discard);
-      this.state.discard = [];
-      this.addLog("O descarte foi embaralhado para formar um novo baralho.");
+      if (this.state.discard.length <= 1) return null;
+      
+      const topDiscard = this.state.discard.pop()!;
+      this.state.deck = shuffleDeck([...this.state.discard]);
+      this.state.discard = [topDiscard];
+      this.addLog("O descarte foi reembaralhado no baralho!");
     }
     return this.state.deck.pop() || null;
   }
@@ -527,43 +568,7 @@ export default class MainServer implements Party.Server {
     this.broadcastSync();
   }
 
-  onClose(conn: Party.Connection) {
-    console.log(`Conexão encerrada: ${conn.id}`);
-    
-    if (this.state.players[conn.id]) {
-      const pName = this.state.players[conn.id].name;
-      delete this.state.players[conn.id];
-      this.addLog(`${pName} abandonou a partida.`);
-      
-      const remainingPlayers = Object.values(this.state.players);
-      if (remainingPlayers.length === 0) {
-        this.state.creatorId = null;
-        this.state.status = "lobby";
-        this.state.deck = [];
-        this.state.discard = [];
-        this.state.currentTurnPlayerId = null;
-        this.state.winnerId = null;
-        this.state.actionLog = [];
-        this.state.pendingAction = null;
-      } else {
-        if (this.state.creatorId === conn.id) {
-          this.state.creatorId = remainingPlayers[0].id;
-          remainingPlayers[0].isCreator = true;
-        }
-        
-        if (this.state.currentTurnPlayerId === conn.id && this.state.status === "playing") {
-          this.state.currentTurnPlayerId = remainingPlayers[0].id;
-        }
-        
-        if (this.state.pendingAction?.playerId === conn.id) {
-          this.state.pendingAction = null;
-          this.passTurn();
-        }
-      }
-      
-      this.broadcastSync();
-    }
-  }
+
 
   private broadcastSync() {
     const syncMsg: ServerMessage = {
