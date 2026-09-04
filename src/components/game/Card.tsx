@@ -36,9 +36,18 @@ export function Card({ card, size = "normal", onClick, selected }: CardProps) {
     "INTELIGÊNCIA ARTIFICIAL E USO CRÍTICO": "bg-orange-500 text-black",
   };
 
+  const categoryAssets: Record<string, string> = {
+    "SEGURANÇA DIGITAL": "/Categorias/Segurança.svg",
+    "PRIVACIDADE E PROTEÇÃO DE DADOS": "/Categorias/Privacidade.svg",
+    "INFORMAÇÃO E PENSAMENTO CRÍTICO": "/Categorias/Informação.svg",
+    "COMUNICAÇÃO E CIDADANIA DIGITAL": "/Categorias/Cidadania.svg",
+    "COMPETÊNCIAS E FERRAMENTAS DIGITAIS": "/Categorias/Ferramentas.svg",
+    "INTELIGÊNCIA ARTIFICIAL E USO CRÍTICO": "/Categorias/IA.svg",
+  };
+
   return (
     <div className={baseClasses} onClick={onClick}>
-      {/* Imagem de Fundo (Moldura SVG) */}
+      {/* Imagem de Fundo Genérica (Moldura SVG) */}
       <div 
         className="absolute inset-0 z-0 opacity-10 dark:opacity-20 bg-cover bg-center pointer-events-none" 
         style={{ backgroundImage: 'url(/card-test.svg)' }}
@@ -49,13 +58,20 @@ export function Card({ card, size = "normal", onClick, selected }: CardProps) {
         {card.type === "object" && (
           <>
             <div className={cn(
-              "w-full px-1 py-0.5 rounded text-[7px] sm:text-[8px] font-bold tracking-wider mb-2 uppercase text-center line-clamp-2",
+              "w-full px-1 py-0.5 rounded text-[7px] sm:text-[8px] font-bold tracking-wider mb-2 uppercase text-center line-clamp-2 shadow-sm",
               card.category ? catColors[card.category] : "bg-zinc-500 text-white"
             )}>
               {card.category}
             </div>
-            <div className="flex-1 flex items-center justify-center">
-              <span className="font-black text-center leading-tight text-xs sm:text-sm">{card.name}</span>
+            <div className="flex-1 relative flex items-center justify-center">
+              {card.category && categoryAssets[card.category] && (
+                <img 
+                  src={encodeURI(categoryAssets[card.category])} 
+                  alt="" 
+                  className="absolute inset-0 w-full h-full object-contain opacity-25 dark:opacity-40 pointer-events-none" 
+                />
+              )}
+              <span className="relative z-10 font-black text-center leading-tight text-xs sm:text-sm drop-shadow-sm">{card.name}</span>
             </div>
             {size === "normal" && card.description && (
               <div className="mt-auto border-t pt-1.5 border-border/50">
@@ -67,11 +83,16 @@ export function Card({ card, size = "normal", onClick, selected }: CardProps) {
 
         {card.type === "joker" && (
           <>
-            <div className="w-full px-1 py-0.5 rounded text-[7px] sm:text-[8px] font-bold tracking-wider mb-2 uppercase text-center bg-gradient-to-r from-red-500 via-green-500 to-blue-500 text-white">
+            <div className="w-full px-1 py-0.5 rounded text-[7px] sm:text-[8px] font-bold tracking-wider mb-2 uppercase text-center bg-gradient-to-r from-red-500 via-green-500 to-blue-500 text-white shadow-sm">
               CARTA CORINGA
             </div>
-            <div className="flex-1 flex items-center justify-center">
-              <span className="font-black text-center leading-tight text-base sm:text-lg text-transparent bg-clip-text bg-gradient-to-br from-red-500 via-green-500 to-blue-500">
+            <div className="flex-1 relative flex items-center justify-center">
+              <img 
+                src={encodeURI("/Categorias/Coringa.svg")} 
+                alt="Coringa" 
+                className="absolute inset-0 w-full h-full object-contain opacity-30 dark:opacity-50 pointer-events-none scale-110" 
+              />
+              <span className="relative z-10 font-black text-center leading-tight text-base sm:text-lg text-transparent bg-clip-text bg-gradient-to-br from-red-500 via-green-500 to-blue-500 drop-shadow-sm">
                 {card.name}
               </span>
             </div>
