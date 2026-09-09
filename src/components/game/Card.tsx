@@ -56,6 +56,7 @@ export function Card({ card, size = "normal", onClick, selected }: CardProps) {
     ? [
         card.name,
         card.description ? `• ${card.description}` : "",
+        card.visualDetail ? `🎨 Visual: ${card.visualDetail}` : "",
         card.tip ? `💡 Dica: ${card.tip}` : "",
         card.fact ? `💬 Fato: ${card.fact}` : "",
       ]

@@ -1,47 +1,204 @@
 import { ObjectCategory } from "../types/game";
 
-export const OBJECT_CARDS_DATA: Array<{ category: ObjectCategory; name: string; description: string }> = [
+export interface ObjectCardData {
+  category: ObjectCategory;
+  name: string;
+  description: string;
+  visualDetail?: string;
+}
+
+export const OBJECT_CARDS_DATA: ObjectCardData[] = [
   // SEGURANÇA DIGITAL
-  { category: 'SEGURANÇA DIGITAL', name: 'Senhas fortes e únicas', description: 'Crie senhas complexas e nunca repita a mesma em vários sites.' },
-  { category: 'SEGURANÇA DIGITAL', name: 'Autenticação em dois fatores (2FA)', description: 'Uma camada extra de proteção além da senha.' },
-  { category: 'SEGURANÇA DIGITAL', name: 'Redes Wi-Fi seguras', description: 'Evite Wi-Fi público para acessar dados sensíveis.' },
-  { category: 'SEGURANÇA DIGITAL', name: 'Antivírus e Firewall', description: 'Mantenha suas defesas ativas contra malwares.' },
-  { category: 'SEGURANÇA DIGITAL', name: 'Bloqueio de Tela e Dispositivos', description: 'Sempre bloqueie suas telas ao se afastar do aparelho.' },
+  {
+    category: 'SEGURANÇA DIGITAL',
+    name: 'Gerenciador de Senhas',
+    description: 'Cria e guarda senhas difíceis para você. Usar a mesma senha em tudo facilita invasões!',
+    visualDetail: 'Um cofre digital guardando chaves coloridas.'
+  },
+  {
+    category: 'SEGURANÇA DIGITAL',
+    name: 'Token 2FA',
+    description: 'Adiciona uma segunda camada de segurança. Mesmo que descubram sua senha, precisarão do seu celular.',
+    visualDetail: 'Um celular exibindo um código de 6 dígitos ao lado de uma porta trancada.'
+  },
+  {
+    category: 'SEGURANÇA DIGITAL',
+    name: 'Escudo VPN',
+    description: 'Criptografa sua conexão. Protege seus dados ao navegar em redes abertas de locais públicos.',
+    visualDetail: 'Um escudo azul protegendo um notebook em uma rede Wi-Fi pública.'
+  },
+  {
+    category: 'SEGURANÇA DIGITAL',
+    name: 'Navegação segura',
+    description: 'Indica conexão segura. Nunca digite senhas ou dados bancários em sites sem o cadeado na barra.',
+    visualDetail: 'Barra de navegação do navegador destacando o endereço "https://" e o cadeado verde.'
+  },
+  {
+    category: 'SEGURANÇA DIGITAL',
+    name: 'Firewall Ativo',
+    description: 'Funciona como um porteiro no dispositivo, bloqueando acessos e conexões não autorizadas.',
+    visualDetail: 'Uma barreira digital bloqueando robôs maliciosos fora do computador.'
+  },
 
   // PRIVACIDADE E PROTEÇÃO DE DADOS
-  { category: 'PRIVACIDADE E PROTEÇÃO DE DADOS', name: 'Dados pessoais protegidos', description: 'Não exponha RG, CPF ou endereço na internet.' },
-  { category: 'PRIVACIDADE E PROTEÇÃO DE DADOS', name: 'Privacidade nas redes sociais', description: 'Ajuste quem pode ver suas postagens e fotos.' },
-  { category: 'PRIVACIDADE E PROTEÇÃO DE DADOS', name: 'Permissões de aplicativos', description: 'Negue acesso à câmera ou GPS se não for necessário.' },
-  { category: 'PRIVACIDADE E PROTEÇÃO DE DADOS', name: 'Configurações de privacidade', description: 'Revise regularmente as políticas de dados dos apps.' },
-  { category: 'PRIVACIDADE E PROTEÇÃO DE DADOS', name: 'Navegação anônima e segura', description: 'Evite deixar rastros ao usar computadores compartilhados.' },
+  {
+    category: 'PRIVACIDADE E PROTEÇÃO DE DADOS',
+    name: 'Privacidade de dados',
+    description: 'Esconde informações pessoais. Evite expor endereço, telefone ou documentos em perfis públicos.',
+    visualDetail: 'Tarja preta cobrindo campos de endereço e telefone em documento/perfil.'
+  },
+  {
+    category: 'PRIVACIDADE E PROTEÇÃO DE DADOS',
+    name: 'Controle de localização',
+    description: 'Desative a geolocalização ao terminar de usar. Nem todo app precisa saber onde você está.',
+    visualDetail: 'Um mapa digital com o pino de localização travado por um cadeado.'
+  },
+  {
+    category: 'PRIVACIDADE E PROTEÇÃO DE DADOS',
+    name: 'Painel de Permissões',
+    description: 'Revogue acessos desnecessários. Um jogo de cartas não precisa ver sua câmera nem ouvir seu microfone.',
+    visualDetail: 'Uma tela de configurações desligando a câmera e o microfone de um aplicativo.'
+  },
+  {
+    category: 'PRIVACIDADE E PROTEÇÃO DE DADOS',
+    name: 'Bloqueador de Cookies',
+    description: 'Impede que sites rastreiem sua navegação para montar um perfil dos seus hábitos.',
+    visualDetail: 'Um biscoito com lupa de detetive sendo parado por uma placa de "Bloqueado".'
+  },
+  {
+    category: 'PRIVACIDADE E PROTEÇÃO DE DADOS',
+    name: 'Limpar dados',
+    description: 'Seus dados pertencem a você. É seu direito apagar cadastros e históricos de plataformas que não usa mais.',
+    visualDetail: 'Uma lixeira digital triturando contas antigas e registros de dados.'
+  },
 
   // INFORMAÇÃO E PENSAMENTO CRÍTICO
-  { category: 'INFORMAÇÃO E PENSAMENTO CRÍTICO', name: 'Fontes confiáveis', description: 'Busque informações em veículos de imprensa e sites oficiais.' },
-  { category: 'INFORMAÇÃO E PENSAMENTO CRÍTICO', name: 'Verificação de informações', description: 'Cheque os fatos antes de acreditar em um título chamativo.' },
-  { category: 'INFORMAÇÃO E PENSAMENTO CRÍTICO', name: 'Compartilhamento responsável', description: 'Não repasse correntes duvidosas no WhatsApp.' },
-  { category: 'INFORMAÇÃO E PENSAMENTO CRÍTICO', name: 'Identificação de Fake News', description: 'Desconfie de notícias sensacionalistas e sem fonte.' },
-  { category: 'INFORMAÇÃO E PENSAMENTO CRÍTICO', name: 'Leitura lateral de notícias', description: 'Pesquise a mesma notícia em vários sites para comparar.' },
+  {
+    category: 'INFORMAÇÃO E PENSAMENTO CRÍTICO',
+    name: 'Verificação de informações',
+    description: 'Antes de repassar, investigue! Confira se a notícia foi publicada em portais jornalísticos sérios.',
+    visualDetail: 'Uma lupa examinando um texto impresso e destacando a palavra "Verificado".'
+  },
+  {
+    category: 'INFORMAÇÃO E PENSAMENTO CRÍTICO',
+    name: 'Pensamento crítico',
+    description: 'Opinião não é fato. Além de verificar, busque refletir sobre a informação.',
+    visualDetail: 'Um cérebro pesando duas informações em uma balança.'
+  },
+  {
+    category: 'INFORMAÇÃO E PENSAMENTO CRÍTICO',
+    name: 'Fontes confiáveis',
+    description: 'Fontes confiáveis informam autores, datas e referências. Desconfie de correntes sem autoria.',
+    visualDetail: 'Um jornal ou portal de notícias com um selo dourado de checagem.'
+  },
+  {
+    category: 'INFORMAÇÃO E PENSAMENTO CRÍTICO',
+    name: 'Filtro de Fake News',
+    description: 'Títulos apelativos tentam gerar cliques pelo medo ou raiva. Leia a matéria antes de reagir.',
+    visualDetail: 'Uma mão segurando uma placa de pare diante de um título exagerado.'
+  },
+  {
+    category: 'INFORMAÇÃO E PENSAMENTO CRÍTICO',
+    name: 'Divulgação responsável',
+    description: 'As informações que você compartilha têm consequências, compartilhe com sabedoria',
+    visualDetail: 'Um ícone de "Compartilhar" passando por um filtro antes de ser publicado.'
+  },
 
   // COMUNICAÇÃO E CIDADANIA DIGITAL
-  { category: 'COMUNICAÇÃO E CIDADANIA DIGITAL', name: 'Respeito nas interações', description: 'Trate os outros online como trataria pessoalmente.' },
-  { category: 'COMUNICAÇÃO E CIDADANIA DIGITAL', name: 'Responsabilidade digital', description: 'Você é responsável por tudo que posta e compartilha.' },
-  { category: 'COMUNICAÇÃO E CIDADANIA DIGITAL', name: 'Direitos autorais e atribuição', description: 'Sempre dê crédito ao autor original de fotos e textos.' },
-  { category: 'COMUNICAÇÃO E CIDADANIA DIGITAL', name: 'Uso ético de conteúdos', description: 'Não plagie e respeite as licenças de uso livre.' },
-  { category: 'COMUNICAÇÃO E CIDADANIA DIGITAL', name: 'Combate ao cyberbullying', description: 'Não apoie agressões virtuais e denuncie perfis tóxicos.' },
+  {
+    category: 'COMUNICAÇÃO E CIDADANIA DIGITAL',
+    name: 'Respeito aos direitos autorais',
+    description: 'Respeite os direitos autorais. Dê os créditos ao criador original e use apenas obras autorizadas.',
+    visualDetail: 'O símbolo de licença aberta sobre uma ilustração ou música.'
+  },
+  {
+    category: 'COMUNICAÇÃO E CIDADANIA DIGITAL',
+    name: 'Respeito nas interações',
+    description: 'Trate as pessoas na internet com o mesmo respeito e empatia que você usa no mundo presencial.',
+    visualDetail: 'Um robô simpático com proteção contra comentários tóxicos.'
+  },
+  {
+    category: 'COMUNICAÇÃO E CIDADANIA DIGITAL',
+    name: 'Consentimento alheio',
+    description: 'Peça permissão antes de postar fotos ou vídeos de outras pessoas. A privacidade do amigo também importa!',
+    visualDetail: 'Uma mão pedindo permissão antes de postar a foto de um colega.'
+  },
+  {
+    category: 'COMUNICAÇÃO E CIDADANIA DIGITAL',
+    name: 'Conversas conscientes',
+    description: 'Pense antes de enviar por impulso. O que você envia a alguém pode ser salvo e durar para sempre.',
+    visualDetail: 'Botão "Enviar" com cronômetro de pausa reflexiva.'
+  },
+  {
+    category: 'COMUNICAÇÃO E CIDADANIA DIGITAL',
+    name: 'Denúncia justa',
+    description: 'Viu ataques, preconceito ou perfis falsos? Não engaje nem compartilhe: use a opção de denunciar.',
+    visualDetail: 'Bandeira de alerta vermelha acionada ao lado de mensagem ofensiva.'
+  },
 
   // COMPETÊNCIAS E FERRAMENTAS DIGITAIS
-  { category: 'COMPETÊNCIAS E FERRAMENTAS DIGITAIS', name: 'E-mail profissional', description: 'Mantenha uma comunicação clara e educada no e-mail.' },
-  { category: 'COMPETÊNCIAS E FERRAMENTAS DIGITAIS', name: 'Organização de arquivos', description: 'Use pastas bem nomeadas para não perder seus trabalhos.' },
-  { category: 'COMPETÊNCIAS E FERRAMENTAS DIGITAIS', name: 'Downloads seguros', description: 'Baixe arquivos apenas de sites oficiais e confiáveis.' },
-  { category: 'COMPETÊNCIAS E FERRAMENTAS DIGITAIS', name: 'Ferramentas colaborativas', description: 'Aprenda a trabalhar em equipe usando a nuvem.' },
-  { category: 'COMPETÊNCIAS E FERRAMENTAS DIGITAIS', name: 'Backup em nuvem', description: 'Salve seus arquivos importantes para nunca perdê-los.' },
+  {
+    category: 'COMPETÊNCIAS E FERRAMENTAS DIGITAIS',
+    name: 'Busca Avançada',
+    description: 'Use palavras-chave exatas e aspas para achar respostas diretas sem perder tempo.',
+    visualDetail: 'Barra de pesquisa com filtros e aspas aplicadas.'
+  },
+  {
+    category: 'COMPETÊNCIAS E FERRAMENTAS DIGITAIS',
+    name: 'Nuvem Organizada',
+    description: 'Organize arquivos por nomes e pastas claras. Ter backups na nuvem evita a perda de trabalhos.',
+    visualDetail: 'Nuvem com pastas coloridas e identificadas.'
+  },
+  {
+    category: 'COMPETÊNCIAS E FERRAMENTAS DIGITAIS',
+    name: 'Download responsável',
+    description: 'Baixe materiais apenas de fontes oficiais. Programas e jogos piratas costumam conter vírus.',
+    visualDetail: 'Laser azul escaneando arquivo recebido da web.'
+  },
+  {
+    category: 'COMPETÊNCIAS E FERRAMENTAS DIGITAIS',
+    name: 'Correio Oficial',
+    description: 'O e-mail é um canal sério. Use títulos claros, linguagem adequada e saudações respeitosas.',
+    visualDetail: 'Envelope de e-mail formal selado com carimbo.'
+  },
+  {
+    category: 'COMPETÊNCIAS E FERRAMENTAS DIGITAIS',
+    name: 'Trabalho Colaborativo',
+    description: 'Ferramentas em nuvem permitem que várias pessoas editem o mesmo projeto juntas em tempo real.',
+    visualDetail: 'Vários cursores coloridos editando o mesmo documento.'
+  },
 
   // INTELIGÊNCIA ARTIFICIAL E USO CRÍTICO
-  { category: 'INTELIGÊNCIA ARTIFICIAL E USO CRÍTICO', name: 'Fundamentos de IA', description: 'Entenda como os algoritmos recomendam conteúdos para você.' },
-  { category: 'INTELIGÊNCIA ARTIFICIAL E USO CRÍTICO', name: 'Verificação de respostas da IA', description: 'IAs podem errar (alucinar). Cheque os dados importantes.' },
-  { category: 'INTELIGÊNCIA ARTIFICIAL E USO CRÍTICO', name: 'Engenharia de prompt', description: 'Aprenda a pedir exatamente o que você precisa.' },
-  { category: 'INTELIGÊNCIA ARTIFICIAL E USO CRÍTICO', name: 'Revisão humana de conteúdo', description: 'Não copie e cole cegamente o que a IA escreveu.' },
-  { category: 'INTELIGÊNCIA ARTIFICIAL E USO CRÍTICO', name: 'Identificação de deepfakes', description: 'Fique atento a vídeos e áudios que parecem artificiais.' }
+  {
+    category: 'INTELIGÊNCIA ARTIFICIAL E USO CRÍTICO',
+    name: 'Prompt Estruturado',
+    description: 'As IAs não leem mentes. Quanto mais clara, contextualizada e precisa for sua instrução, melhor a resposta.',
+    visualDetail: 'Bloco de notas com instruções claras e contexto.'
+  },
+  {
+    category: 'INTELIGÊNCIA ARTIFICIAL E USO CRÍTICO',
+    name: 'Terminal Chatbot',
+    description: 'O chatbot serve para ajudar na construção de ideias, mas não substitui a reflexão própria.',
+    visualDetail: 'Tela de diálogo conversando com assistente virtual.'
+  },
+  {
+    category: 'INTELIGÊNCIA ARTIFICIAL E USO CRÍTICO',
+    name: 'Revisão Humana',
+    description: 'IAs podem cometer erros ou inventar fatos (\'alucinações\'). Sempre confira os dados fornecidos.',
+    visualDetail: 'Pessoa com óculos analisando folha impressa por IA.'
+  },
+  {
+    category: 'INTELIGÊNCIA ARTIFICIAL E USO CRÍTICO',
+    name: 'IA + Humano',
+    description: 'A IA acelera tarefas repetitivas, mas a criatividade, o sentimento e o juízo ético dependem de você.',
+    visualDetail: 'Mão humana e robótica juntas segurando um projeto.'
+  },
+  {
+    category: 'INTELIGÊNCIA ARTIFICIAL E USO CRÍTICO',
+    name: 'Transparência autoral',
+    description: 'Seja ético! Sempre informe quando usar textos ou imagens gerados por inteligência artificial.',
+    visualDetail: 'Marca d\'água no canto da imagem sinalizando \'Gerado por IA\'.'
+  }
 ];
 
 export interface EffectCardData {

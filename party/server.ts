@@ -23,6 +23,7 @@ function generateDeck(): Card[] {
       category: item.category,
       name: item.name,
       description: item.description,
+      visualDetail: item.visualDetail,
     });
   });
 

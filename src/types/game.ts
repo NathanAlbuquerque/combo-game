@@ -18,6 +18,7 @@ export interface Card {
   description?: string;
   tip?: string;
   fact?: string;
+  visualDetail?: string;
 }
 
 export interface Player {
