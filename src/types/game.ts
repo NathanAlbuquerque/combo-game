@@ -74,7 +74,7 @@ export interface GameState {
 }
 
 export type ClientMessage = 
-  | { type: 'join'; name: string }
+  | { type: 'join'; name: string; playerId?: string }
   | { type: 'start_game' }
   | { type: 'draw_card' }
   | { type: 'play_card'; cardId: string; targetId?: string; targetPlayerId?: string }

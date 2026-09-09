@@ -17,6 +17,45 @@ const categoryAssets: Record<string, string> = {
   "INTELIGÊNCIA ARTIFICIAL E USO CRÍTICO": "/Categorias/IA.svg",
 };
 
+export const CATEGORY_STYLES: Record<string, { bg: string; text: string; border: string; label: string }> = {
+  "SEGURANÇA DIGITAL": {
+    bg: "#00C4EE",
+    text: "#000000",
+    border: "#0099cc",
+    label: "Segurança",
+  },
+  "PRIVACIDADE E PROTEÇÃO DE DADOS": {
+    bg: "#F4E000",
+    text: "#000000",
+    border: "#d4c200",
+    label: "Privacidade",
+  },
+  "INFORMAÇÃO E PENSAMENTO CRÍTICO": {
+    bg: "#7120E3",
+    text: "#ffffff",
+    border: "#5812bb",
+    label: "Informação",
+  },
+  "COMUNICAÇÃO E CIDADANIA DIGITAL": {
+    bg: "#FF2F2F",
+    text: "#ffffff",
+    border: "#cc1818",
+    label: "Cidadania",
+  },
+  "COMPETÊNCIAS E FERRAMENTAS DIGITAIS": {
+    bg: "#FF8800",
+    text: "#ffffff",
+    border: "#cc6d00",
+    label: "Ferramentas",
+  },
+  "INTELIGÊNCIA ARTIFICIAL E USO CRÍTICO": {
+    bg: "#079433",
+    text: "#ffffff",
+    border: "#056a24",
+    label: "Inteligência Art.",
+  },
+};
+
 export function Card({ card, size = "normal", onClick, selected }: CardProps) {
   const isBack = !card;
 
@@ -24,7 +63,7 @@ export function Card({ card, size = "normal", onClick, selected }: CardProps) {
     "relative flex flex-col justify-between rounded-xl transition-all cursor-pointer shadow-md overflow-hidden select-none border",
     size === "normal"
       ? "w-28 sm:w-32 aspect-[182/252] text-sm"
-      : "w-16 aspect-[182/252] text-[10px]",
+      : "w-[76px] sm:w-[84px] aspect-[182/252] text-[10px]",
     selected
       ? "border-primary ring-2 ring-primary ring-offset-2 -translate-y-4 shadow-xl"
       : "border-border/60 hover:-translate-y-2 hover:shadow-lg hover:border-primary/50"
@@ -82,9 +121,12 @@ export function Card({ card, size = "normal", onClick, selected }: CardProps) {
         <div className="absolute inset-0 bg-gradient-to-b from-zinc-800 via-zinc-900 to-zinc-950 border border-amber-500/30 rounded-xl pointer-events-none z-0 shadow-inner" />
       )}
 
-      {/* 2. Gradiente escuro de suporte para contraste e legibilidade para cartas de objeto e coringa */}
+      {/* 2. Gradientes escuros de suporte para contraste e legibilidade no topo e base */}
       {card.type !== "effect" && (
-        <div className="absolute inset-x-0 bottom-0 h-[62%] bg-gradient-to-t from-black/95 via-black/75 to-transparent pointer-events-none z-0 rounded-b-xl" />
+        <>
+          <div className="absolute inset-x-0 top-0 h-[38%] bg-gradient-to-b from-black/85 via-black/50 to-transparent pointer-events-none z-0 rounded-t-xl" />
+          <div className="absolute inset-x-0 bottom-0 h-[62%] bg-gradient-to-t from-black/95 via-black/80 to-transparent pointer-events-none z-0 rounded-b-xl" />
+        </>
       )}
 
       {/* 3. Conteúdo da Carta (Layout dedicado para Efeitos e Objeto/Coringa) */}
@@ -152,28 +194,48 @@ export function Card({ card, size = "normal", onClick, selected }: CardProps) {
           )}
         </div>
       ) : (
-        <div className="relative z-10 flex flex-col justify-end h-full">
+        <div className="relative z-10 flex flex-col justify-between h-full w-full">
           {card.type === "object" && (
             <>
+              {/* Top: Tag/Badge com a cor oficial da categoria */}
+              <div className="pt-1.5 px-1.5 flex items-center justify-center shrink-0 w-full">
+                {card.category && (
+                  <div
+                    className={cn(
+                      "inline-flex items-center justify-center px-1.5 py-0.5 rounded border font-black uppercase tracking-wider text-center shadow-sm w-full truncate",
+                      size === "normal"
+                        ? "text-[7.5px] sm:text-[8px] leading-tight"
+                        : "text-[6.5px] sm:text-[7px] leading-none"
+                    )}
+                    style={{
+                      backgroundColor: (card.category && CATEGORY_STYLES[card.category]?.bg) || "#3b82f6",
+                      color: (card.category && CATEGORY_STYLES[card.category]?.text) || "#ffffff",
+                      borderColor: (card.category && CATEGORY_STYLES[card.category]?.border) || "transparent",
+                    }}
+                    title={card.category}
+                  >
+                    {size === "normal"
+                      ? card.category
+                      : (card.category && CATEGORY_STYLES[card.category]?.label) || card.category}
+                  </div>
+                )}
+              </div>
+
+              {/* Bottom: Título do objeto perfeitamente legível */}
               {size === "normal" ? (
                 <div className="p-2 sm:p-2.5 flex flex-col text-center text-white">
-                  {card.category && (
-                    <span className="text-[7.5px] sm:text-[8px] font-bold tracking-wider text-white/70 uppercase truncate mb-0.5">
-                      {card.category}
-                    </span>
-                  )}
                   <span className="font-extrabold leading-tight text-[11px] sm:text-[12px] text-white drop-shadow-md line-clamp-2">
                     {card.name}
                   </span>
                   {card.description && (
-                    <p className="text-[8px] sm:text-[8.5px] text-white/85 leading-snug line-clamp-3 mt-1 pt-1 border-t border-white/20">
+                    <p className="text-[8px] sm:text-[8.5px] text-white/90 leading-snug line-clamp-3 mt-1 pt-1 border-t border-white/20">
                       {card.description}
                     </p>
                   )}
                 </div>
               ) : (
                 <div className="p-1 pb-1.5 flex flex-col text-center text-white">
-                  <span className="font-extrabold leading-tight text-[8px] text-white drop-shadow-md line-clamp-2">
+                  <span className="font-black leading-tight text-[8.5px] sm:text-[9.5px] text-white drop-shadow-md line-clamp-2">
                     {card.name}
                   </span>
                 </div>
@@ -183,23 +245,36 @@ export function Card({ card, size = "normal", onClick, selected }: CardProps) {
 
           {card.type === "joker" && (
             <>
+              {/* Top: Tag/Badge Coringa */}
+              <div className="pt-1.5 px-1.5 flex items-center justify-center shrink-0 w-full">
+                <div
+                  className={cn(
+                    "inline-flex items-center justify-center px-1.5 py-0.5 rounded border border-amber-300/70 bg-gradient-to-r from-red-500 via-amber-400 to-sky-500 text-white font-black uppercase tracking-wider text-center shadow-sm w-full truncate",
+                    size === "normal"
+                      ? "text-[7.5px] sm:text-[8px] leading-tight"
+                      : "text-[6.5px] sm:text-[7px] leading-none"
+                  )}
+                  title="CARTA CORINGA"
+                >
+                  🃏 CORINGA
+                </div>
+              </div>
+
+              {/* Bottom: Título Coringa */}
               {size === "normal" ? (
                 <div className="p-2 sm:p-2.5 flex flex-col text-center text-white">
-                  <span className="text-[7.5px] sm:text-[8px] font-bold tracking-wider uppercase text-amber-300 drop-shadow-sm mb-0.5">
-                    CARTA CORINGA
-                  </span>
                   <span className="font-extrabold leading-tight text-[13px] sm:text-[14px] text-white drop-shadow-md">
                     {card.name || "Coringa"}
                   </span>
                   {card.description && (
-                    <p className="text-[8px] sm:text-[8.5px] text-white/85 leading-snug line-clamp-3 mt-1 pt-1 border-t border-white/20">
+                    <p className="text-[8px] sm:text-[8.5px] text-white/90 leading-snug line-clamp-3 mt-1 pt-1 border-t border-white/20">
                       {card.description}
                     </p>
                   )}
                 </div>
               ) : (
                 <div className="p-1 pb-1.5 flex flex-col text-center text-white">
-                  <span className="font-extrabold leading-tight text-[8px] text-white drop-shadow-md">
+                  <span className="font-black leading-tight text-[9px] sm:text-[10px] text-white drop-shadow-md">
                     {card.name || "Coringa"}
                   </span>
                 </div>

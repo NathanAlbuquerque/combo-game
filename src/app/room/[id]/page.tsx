@@ -10,6 +10,17 @@ import { GameBoard } from "@/components/game/GameBoard";
 import { CopyRoomButton } from "@/components/game/CopyRoomButton";
 import { MatchStatsModal } from "@/components/game/MatchStatsModal";
 
+function getOrCreatePlayerId(roomId: string): string {
+  if (typeof window === "undefined") return "";
+  const key = `combo_player_id_${roomId}`;
+  let id = sessionStorage.getItem(key);
+  if (!id) {
+    id = `usr_${Math.random().toString(36).substring(2, 10)}_${Date.now().toString(36)}`;
+    sessionStorage.setItem(key, id);
+  }
+  return id;
+}
+
 function RoomContent() {
   const router = useRouter();
   const params = useParams();
@@ -26,6 +37,7 @@ function RoomContent() {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [toastMsg, setToastMsg] = useState<string | null>(null);
   const [isStatsOpen, setIsStatsOpen] = useState(false);
+  const [stablePlayerId] = useState(() => getOrCreatePlayerId(roomId));
 
   const playerNameRef = useRef(playerName);
   useEffect(() => {
@@ -37,7 +49,13 @@ function RoomContent() {
     room: roomId,
     onOpen() {
       if (playerNameRef.current) {
-        socket.send(JSON.stringify({ type: "join", name: playerNameRef.current }));
+        socket.send(
+          JSON.stringify({
+            type: "join",
+            name: playerNameRef.current,
+            playerId: getOrCreatePlayerId(roomId),
+          })
+        );
       }
     },
     onMessage(event) {
@@ -64,9 +82,10 @@ function RoomContent() {
 
   useEffect(() => {
     if (playerName && socket.readyState === WebSocket.OPEN) {
-      socket.send(JSON.stringify({ type: "join", name: playerName }));
+      const pid = stablePlayerId || getOrCreatePlayerId(roomId);
+      socket.send(JSON.stringify({ type: "join", name: playerName, playerId: pid }));
     }
-  }, [playerName, socket]);
+  }, [playerName, socket, stablePlayerId, roomId]);
 
   const handleJoinWithName = (e: React.FormEvent) => {
     e.preventDefault();
@@ -77,8 +96,9 @@ function RoomContent() {
     }
     setPlayerName(clean);
     router.replace(`/room/${roomId}?name=${encodeURIComponent(clean)}`);
+    const pid = stablePlayerId || getOrCreatePlayerId(roomId);
     if (socket.readyState === WebSocket.OPEN) {
-      socket.send(JSON.stringify({ type: "join", name: clean }));
+      socket.send(JSON.stringify({ type: "join", name: clean, playerId: pid }));
     }
   };
 
@@ -152,7 +172,9 @@ function RoomContent() {
     );
   }
 
-  const myId = socket.id;
+  const myId = (stablePlayerId && gameState?.players[stablePlayerId])
+    ? stablePlayerId
+    : socket.id;
 
   // AÇÕES
   const handleStartGame = () => socket.send(JSON.stringify({ type: "start_game" }));

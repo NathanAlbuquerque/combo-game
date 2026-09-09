@@ -127,22 +127,45 @@ export default class MainServer implements Party.Server {
     this.state.stats.playerStats[playerId].effectsPlayed++;
   }
 
+  private connectionToPlayerId: Map<string, string> = new Map();
+  private playerToConnectionId: Map<string, string> = new Map();
+
+  private getPlayerId(connId: string): string {
+    return this.connectionToPlayerId.get(connId) || connId;
+  }
+
   onConnect(conn: Party.Connection) {
     console.log(`Conexão estabelecida: ${conn.id} na sala ${this.room.id}`);
   }
 
   onClose(conn: Party.Connection) {
     console.log(`Conexão fechada: ${conn.id}`);
+    const playerId = this.connectionToPlayerId.get(conn.id);
+    if (!playerId) return;
+
+    // Se este jogador já tem uma conexão mais nova ativa, ignora o fechamento do socket antigo
+    const activeConnId = this.playerToConnectionId.get(playerId);
+    if (activeConnId && activeConnId !== conn.id) {
+      this.connectionToPlayerId.delete(conn.id);
+      return;
+    }
+
+    this.connectionToPlayerId.delete(conn.id);
+    this.playerToConnectionId.delete(playerId);
+
     if (this.state.status === "playing") {
-      this.addLog(`O jogador ${this.state.players[conn.id]?.name || conn.id} desconectou.`);
-      this.reclaimPlayerCards(conn.id);
+      this.addLog(`O jogador ${this.state.players[playerId]?.name || playerId} desconectou.`);
+      this.reclaimPlayerCards(playerId);
       this.checkEliminations();
       this.broadcastSync();
     } else {
-      delete this.state.players[conn.id];
-      if (this.state.creatorId === conn.id) {
+      delete this.state.players[playerId];
+      if (this.state.creatorId === playerId) {
         const remaining = Object.keys(this.state.players);
         this.state.creatorId = remaining.length > 0 ? remaining[0] : null;
+        if (this.state.creatorId && this.state.players[this.state.creatorId]) {
+          this.state.players[this.state.creatorId].isCreator = true;
+        }
       }
       this.broadcastSync();
     }
@@ -348,19 +371,58 @@ export default class MainServer implements Party.Server {
       // LÓGICA DE LOBBY & INÍCIO
       // ==========================================
       if (parsed.type === "join") {
+        const rawPlayerId = parsed.playerId?.trim();
+        const trimmedName = parsed.name.trim();
+
+        // 1. Tenta associar a um jogador já registrado (por ID estável ou pelo mesmo nome)
+        let existingPlayerId: string | undefined;
+
+        if (rawPlayerId && this.state.players[rawPlayerId]) {
+          existingPlayerId = rawPlayerId;
+        } else {
+          const found = Object.values(this.state.players).find(
+            p => p.name.trim().toLowerCase() === trimmedName.toLowerCase()
+          );
+          if (found) {
+            existingPlayerId = found.id;
+          }
+        }
+
+        if (existingPlayerId) {
+          // Atualiza a conexão associada sem duplicar o jogador
+          const player = this.state.players[existingPlayerId];
+          player.name = trimmedName;
+
+          const oldConnId = this.playerToConnectionId.get(existingPlayerId);
+          if (oldConnId && oldConnId !== sender.id) {
+            this.connectionToPlayerId.delete(oldConnId);
+          }
+
+          this.connectionToPlayerId.set(sender.id, existingPlayerId);
+          this.playerToConnectionId.set(existingPlayerId, sender.id);
+
+          this.broadcastSync();
+          return;
+        }
+
+        // 2. Novo jogador querendo entrar na sala
         if (this.state.status !== "lobby") {
           sender.send(JSON.stringify({ type: "error", message: "A partida já começou!" }));
           return;
         }
 
+        const newPlayerId = rawPlayerId || sender.id;
         const isCreator = this.state.creatorId === null || Object.keys(this.state.players).length === 0;
         if (isCreator) {
-          this.state.creatorId = sender.id;
+          this.state.creatorId = newPlayerId;
         }
 
-        this.state.players[sender.id] = {
-          id: sender.id,
-          name: parsed.name,
+        this.connectionToPlayerId.set(sender.id, newPlayerId);
+        this.playerToConnectionId.set(newPlayerId, sender.id);
+
+        this.state.players[newPlayerId] = {
+          id: newPlayerId,
+          name: trimmedName,
           isCreator,
           hand: [],
           objectArea: [],
@@ -372,13 +434,15 @@ export default class MainServer implements Party.Server {
         return;
       }
 
+      const myPlayerId = this.getPlayerId(sender.id);
+
       if (parsed.type === "start_game") {
         if (this.state.status !== "lobby") {
           sender.send(JSON.stringify({ type: "error", message: "A partida já está em andamento." }));
           return;
         }
         
-        if (sender.id !== this.state.creatorId) {
+        if (myPlayerId !== this.state.creatorId) {
           sender.send(JSON.stringify({ type: "error", message: "Apenas o criador pode iniciar o jogo." }));
           return;
         }
@@ -436,12 +500,12 @@ export default class MainServer implements Party.Server {
         const pAction = this.state.pendingAction;
         
         // Só aceita mensagem do requiredPlayerId E que seja resolve_pending_action ou discard_card
-        if (sender.id !== pAction.requiredPlayerId || (parsed.type !== 'resolve_pending_action' && parsed.type !== 'discard_card')) {
+        if (myPlayerId !== pAction.requiredPlayerId || (parsed.type !== 'resolve_pending_action' && parsed.type !== 'discard_card')) {
            sender.send(JSON.stringify({ type: "error", message: "Aguardando outro jogador resolver a ação pendente." }));
            return;
         }
 
-        const targetPlayer = this.state.players[sender.id];
+        const targetPlayer = this.state.players[myPlayerId];
         const initiatorPlayer = this.state.players[pAction.initiatorPlayerId];
         const cIndex = targetPlayer.hand.findIndex(c => c.id === parsed.cardId);
         
@@ -478,11 +542,11 @@ export default class MainServer implements Party.Server {
       // ==========================================
       if (parsed.type === "skip_extra_play" || parsed.type === "end_turn") {
         if (this.state.status !== "playing") return;
-        if (this.state.extraPlayPlayerId !== sender.id) {
+        if (this.state.extraPlayPlayerId !== myPlayerId) {
           sender.send(JSON.stringify({ type: "error", message: "Você não possui jogada extra pendente." }));
           return;
         }
-        const me = this.state.players[sender.id];
+        const me = this.state.players[myPlayerId];
         this.state.extraPlayPlayerId = null;
         this.addLog(`⚡ ${me.name} finalizou a jogada extra sem baixar novo objeto.`);
         this.passTurn();
@@ -505,12 +569,12 @@ export default class MainServer implements Party.Server {
           return;
         }
 
-        if (sender.id !== this.state.currentTurnPlayerId) {
+        if (myPlayerId !== this.state.currentTurnPlayerId) {
           sender.send(JSON.stringify({ type: "error", message: "Não é o seu turno!" }));
           return;
         }
 
-        const me = this.state.players[sender.id];
+        const me = this.state.players[myPlayerId];
 
         // Se estiver na jogada extra, não pode comprar nem trocar
         if (this.state.extraPlayPlayerId === me.id && (parsed.type === "draw_card" || parsed.type === "trade_card")) {
@@ -802,9 +866,14 @@ export default class MainServer implements Party.Server {
 
               case 'Vídeo Deepfake': {
                 if (!targetPlayer) break;
-                const tempHand = me.hand;
-                me.hand = targetPlayer.hand;
-                targetPlayer.hand = tempHand;
+                // Garante que a carta Vídeo Deepfake seja enviada para o discardPile e excluída da mão antes da troca
+                me.hand = me.hand.filter(c => c.id !== card.id);
+                if (!this.state.discard.some(c => c.id === card.id)) {
+                  this.state.discard.push(card);
+                }
+                const myHandToGive = [...me.hand];
+                me.hand = [...targetPlayer.hand];
+                targetPlayer.hand = myHandToGive;
                 this.addLog(`🎭 ${me.name} usou Vídeo Deepfake e trocou de mão com ${targetPlayer.name}!`);
                 break;
               }

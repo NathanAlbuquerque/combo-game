@@ -1,4 +1,4 @@
-import { GameState } from "@/types/game";
+import { GameState, Player } from "@/types/game";
 import { OpponentView } from "./OpponentView";
 import { PlayerHand } from "./PlayerHand";
 import { Card } from "./Card";
@@ -33,6 +33,7 @@ export function GameBoard({
   const [tradingMode, setTradingMode] = useState(false);
   const [targetingCardId, setTargetingCardId] = useState<string | null>(null);
   const [isHelpOpen, setIsHelpOpen] = useState(false);
+  const [inspectingPlayer, setInspectingPlayer] = useState<Player | null>(null);
 
   const me = state.players[myId];
   const opponents = Object.values(state.players).filter((p) => p.id !== myId);
@@ -111,11 +112,11 @@ export function GameBoard({
     <div className="h-[100dvh] w-full flex flex-col bg-zinc-50 dark:bg-black overflow-hidden font-sans">
       
       {/* AREA 1: Oponentes (Topo) */}
-      <div className={`w-full border-b bg-card/50 shadow-sm overflow-x-auto flex items-center px-4 gap-4 py-2 shrink-0 transition-all duration-300 ${
-        isAnyHandRevealed ? "min-h-[190px] h-auto" : "h-1/5 min-h-[140px]"
+      <div className={`w-full border-b bg-card/40 backdrop-blur-sm shadow-sm overflow-x-auto flex items-center justify-start lg:justify-center px-3 sm:px-6 gap-3 sm:gap-4 py-2.5 shrink-0 transition-all duration-300 ${
+        isAnyHandRevealed ? "min-h-[200px] h-auto" : "h-1/5 min-h-[155px]"
       }`}>
         {opponents.length === 0 ? (
-          <div className="w-full text-center text-sm text-muted-foreground">Esperando oponentes...</div>
+          <div className="w-full text-center text-sm text-muted-foreground py-4">Esperando oponentes...</div>
         ) : (
           opponents.map(opp => {
             const isOppTurn = state.currentTurnPlayerId === opp.id;
@@ -140,6 +141,7 @@ export function GameBoard({
                 actionLabel={actionLabel}
                 onActionClick={canClick ? () => handleOpponentClick(opp.id) : undefined}
                 areHandsRevealed={isOppRevealed}
+                onInspect={() => setInspectingPlayer(opp)}
               />
             );
           })
@@ -150,9 +152,9 @@ export function GameBoard({
       <div className="flex-1 w-full flex flex-col relative overflow-hidden">
         
         {/* Info do Turno / Status do Jogo / Topo da Mesa */}
-        <div className="absolute top-3 left-0 right-0 z-10 flex w-full max-w-2xl mx-auto px-4 justify-between items-start pointer-events-none">
+        <div className="absolute top-3 left-0 right-0 z-10 flex w-full max-w-4xl mx-auto px-4 justify-between items-start pointer-events-none gap-2">
           {/* Botão Copiar Link da Sala (Topo da Mesa) */}
-          <div className="pointer-events-auto">
+          <div className="pointer-events-auto shrink-0">
             {roomId && (
               <CopyRoomButton 
                 roomId={roomId} 
@@ -164,45 +166,53 @@ export function GameBoard({
           </div>
 
           <div className="pointer-events-auto flex-1 flex justify-center px-2">
-            <div className="bg-background/90 backdrop-blur px-4 sm:px-6 py-2 rounded-full border shadow-sm text-center transition-all duration-300 flex flex-col items-center gap-2">
+            <div className="bg-background/95 backdrop-blur-md px-4 sm:px-6 py-2.5 rounded-2xl border shadow-md text-center transition-all duration-300 flex flex-col items-center gap-2 max-w-xl w-full">
               {me?.isEliminated ? (
-                <span className="text-muted-foreground font-bold text-sm">Você foi eliminado 💀</span>
+                <span className="text-muted-foreground font-extrabold text-sm">Você foi eliminado 💀</span>
               ) : isPendingMyAction ? (
-                <span className="text-destructive font-bold animate-pulse text-sm">
+                <span className="text-destructive font-black animate-pulse text-sm sm:text-base leading-snug whitespace-normal">
                   {state.pendingAction?.type === 'CHOOSE_CARD_TO_DISCARD'
-                    ? "ALERTA DE PHISHING: ESCOLHA 1 CARTA PARA DESCARTAR!"
-                    : "LI E ACEITO: ESCOLHA 1 CARTA PARA ENTREGAR!"}
+                    ? "🚨 ALERTA DE PHISHING: Escolha 1 carta da sua mão para descartar agora!"
+                    : `📜 LI E ACEITO: Escolha 1 carta para entregar a ${state.pendingAction?.initiatorPlayerId ? state.players[state.pendingAction.initiatorPlayerId]?.name || 'adversário' : 'adversário'}!`}
                 </span>
               ) : state.pendingAction ? (
-                <span className="text-amber-500 font-bold text-sm animate-pulse">
+                <span className="text-amber-600 dark:text-amber-400 font-bold text-xs sm:text-sm animate-pulse whitespace-normal leading-snug">
                   {state.pendingAction.type === 'CHOOSE_CARD_TO_DISCARD'
                     ? `Aguardando ${state.players[state.pendingAction.requiredPlayerId]?.name || 'Jogador'} descartar uma carta...`
                     : `Aguardando ${state.players[state.pendingAction.requiredPlayerId]?.name || 'Jogador'} entregar uma carta...`}
                 </span>
+              ) : targetingCardId ? (
+                <span className="text-primary font-black animate-pulse text-sm sm:text-base leading-snug whitespace-normal">
+                  🎯 Selecione um adversário destacado no topo para aplicar o efeito!
+                </span>
+              ) : tradingMode ? (
+                <span className="text-primary font-black animate-pulse text-sm sm:text-base leading-snug whitespace-normal">
+                  🔄 Selecione um adversário destacado no topo para trocar cartas!
+                </span>
               ) : isMyExtraPlay ? (
-                <span className="text-violet-600 dark:text-violet-400 font-bold animate-pulse text-sm">
-                  Prompt Perfeito: Baixe um novo Objeto!
+                <span className="text-violet-600 dark:text-violet-400 font-black animate-pulse text-sm leading-snug whitespace-normal">
+                  Prompt Perfeito: Baixe um novo Objeto na mesa!
                 </span>
               ) : isActiveTurn ? (
-                <span className="text-primary font-bold animate-pulse text-sm">Sua vez!</span>
+                <span className="text-primary font-black animate-pulse text-sm sm:text-base">Sua vez de jogar!</span>
               ) : (
-                <span className="text-muted-foreground text-sm">Vez de: {state.players[state.currentTurnPlayerId!]?.name}</span>
+                <span className="text-muted-foreground text-xs sm:text-sm font-semibold">Vez de: {state.players[state.currentTurnPlayerId!]?.name}</span>
               )}
 
               {isAnyHandRevealed && (
-                <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-600 dark:text-amber-400 text-xs font-bold animate-pulse">
-                  <Eye className="w-3.5 h-3.5" />
+                <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-600 dark:text-amber-400 text-xs font-bold animate-pulse whitespace-normal text-center">
+                  <Eye className="w-3.5 h-3.5 shrink-0" />
                   <span>
                     {isGlobalHandsRevealed ? "Vazamento de Dados Ativo • Mãos Reveladas!" : "Mão(s) Revelada(s) por Senha Fraca!"}
                   </span>
                 </div>
               )}
               
-              {/* Action Log (Mostra a última ação com animação de entrada) */}
+              {/* Action Log (Mostra a última ação com animação de entrada e quebra natural sem truncar) */}
               {state.actionLog.length > 0 && (
                 <div 
                   key={state.actionLog.length} 
-                  className="text-[11px] font-mono bg-black/80 dark:bg-white/90 text-white dark:text-black px-4 py-1.5 rounded-full shadow-lg max-w-sm text-center truncate animate-in fade-in slide-in-from-top-2 duration-300"
+                  className="text-xs font-medium bg-black/85 dark:bg-white/95 text-white dark:text-black px-4 py-2 rounded-xl shadow-md max-w-xl w-full text-center whitespace-normal leading-relaxed animate-in fade-in slide-in-from-top-2 duration-300"
                 >
                   {state.actionLog[state.actionLog.length - 1]}
                 </div>
@@ -483,6 +493,50 @@ export function GameBoard({
             </div>
 
             <Button onClick={() => setIsHelpOpen(false)} className="w-full mt-6">Entendi!</Button>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL DE INSPEÇÃO DA MESA DO OPONENTE */}
+      {inspectingPlayer && (
+        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-card border-2 border-border text-card-foreground p-6 rounded-3xl max-w-xl w-full shadow-2xl relative animate-in zoom-in-95 duration-200 flex flex-col">
+            <button 
+              onClick={() => setInspectingPlayer(null)}
+              className="absolute top-4 right-4 text-muted-foreground hover:text-foreground p-1 rounded-full hover:bg-muted transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div className="flex items-center gap-2.5 mb-4">
+              <UserCircle2 className="w-7 h-7 text-primary" />
+              <div>
+                <h3 className="text-lg font-black text-foreground">
+                  Mesa de {inspectingPlayer.name}
+                </h3>
+                <p className="text-xs text-muted-foreground">
+                  {inspectingPlayer.objectArea.length} objeto(s) baixado(s) • {inspectingPlayer.hand.length} carta(s) na mão
+                </p>
+              </div>
+            </div>
+
+            <div className="w-full max-h-[60vh] overflow-y-auto p-4 flex flex-wrap gap-4 justify-center items-center rounded-2xl bg-muted/20 border">
+              {inspectingPlayer.objectArea.length === 0 ? (
+                <p className="text-sm text-muted-foreground italic py-8 text-center">
+                  Este jogador ainda não baixou nenhum objeto na mesa.
+                </p>
+              ) : (
+                inspectingPlayer.objectArea.map((card) => (
+                  <div key={card.id} className="shrink-0 animate-in zoom-in-95">
+                    <Card card={card} size="normal" />
+                  </div>
+                ))
+              )}
+            </div>
+
+            <Button onClick={() => setInspectingPlayer(null)} className="w-full mt-5 font-bold">
+              Fechar
+            </Button>
           </div>
         </div>
       )}
