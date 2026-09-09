@@ -4,7 +4,7 @@ import { PlayerHand } from "./PlayerHand";
 import { Card } from "./Card";
 import { CopyRoomButton } from "./CopyRoomButton";
 import { Button } from "@/components/ui/button";
-import { HelpCircle, X } from "lucide-react";
+import { HelpCircle, X, Eye } from "lucide-react";
 import { useState } from "react";
 
 interface GameBoardProps {
@@ -25,6 +25,7 @@ export function GameBoard({ state, myId, roomId, onDraw, onPlay, onTrade, onDisc
   const me = state.players[myId];
   const opponents = Object.values(state.players).filter((p) => p.id !== myId);
   
+  const areHandsRevealed = Boolean(state.revealedHandsUntilTurnOfPlayerId);
   const isMyTurn = state.currentTurnPlayerId === myId;
   const isPendingMyDiscard = state.pendingAction?.playerId === myId && state.pendingAction?.type === 'discard';
   
@@ -70,7 +71,9 @@ export function GameBoard({ state, myId, roomId, onDraw, onPlay, onTrade, onDisc
     <div className="h-[100dvh] w-full flex flex-col bg-zinc-50 dark:bg-black overflow-hidden font-sans">
       
       {/* AREA 1: Oponentes (Topo) */}
-      <div className="h-1/5 min-h-[140px] w-full border-b bg-card/50 shadow-sm overflow-x-auto flex items-center px-4 gap-4 py-2 shrink-0">
+      <div className={`w-full border-b bg-card/50 shadow-sm overflow-x-auto flex items-center px-4 gap-4 py-2 shrink-0 transition-all duration-300 ${
+        areHandsRevealed ? "min-h-[190px] h-auto" : "h-1/5 min-h-[140px]"
+      }`}>
         {opponents.length === 0 ? (
           <div className="w-full text-center text-sm text-muted-foreground">Esperando oponentes...</div>
         ) : (
@@ -95,6 +98,7 @@ export function GameBoard({ state, myId, roomId, onDraw, onPlay, onTrade, onDisc
                 isActiveTurn={isOppTurn}
                 actionLabel={actionLabel}
                 onActionClick={canClick ? () => handleOpponentClick(opp.id) : undefined}
+                areHandsRevealed={areHandsRevealed}
               />
             );
           })
@@ -130,6 +134,13 @@ export function GameBoard({ state, myId, roomId, onDraw, onPlay, onTrade, onDisc
                 <span className="text-primary font-bold animate-pulse text-sm">Sua vez!</span>
               ) : (
                 <span className="text-muted-foreground text-sm">Vez de: {state.players[state.currentTurnPlayerId!]?.name}</span>
+              )}
+
+              {areHandsRevealed && (
+                <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-600 dark:text-amber-400 text-xs font-bold animate-pulse">
+                  <Eye className="w-3.5 h-3.5" />
+                  <span>Vazamento de Dados Ativo • Mãos Reveladas!</span>
+                </div>
               )}
               
               {/* Action Log (Mostra a última ação com animação de entrada) */}
@@ -241,7 +252,13 @@ export function GameBoard({ state, myId, roomId, onDraw, onPlay, onTrade, onDisc
       </div>
 
       {/* AREA 3: Minha Mão (Base) */}
-      <div className="min-h-[175px] max-h-[200px] w-full border-t bg-card flex flex-col shrink-0 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] z-20 overflow-visible">
+      <div className="min-h-[175px] max-h-[210px] w-full border-t bg-card flex flex-col shrink-0 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] z-20 overflow-visible relative">
+        {areHandsRevealed && (
+          <div className="w-full bg-amber-500/10 border-b border-amber-500/30 text-amber-700 dark:text-amber-400 text-[11px] font-semibold py-1 px-3 flex items-center justify-center gap-1.5">
+            <Eye className="w-3.5 h-3.5 shrink-0" />
+            <span>Sua mão está visível para todos os jogadores devido ao <strong>Vazamento de Dados</strong>!</span>
+          </div>
+        )}
         <PlayerHand 
           hand={me.hand} 
           isActiveTurn={isActiveTurn || isPendingMyDiscard}

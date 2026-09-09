@@ -16,6 +16,8 @@ export interface Card {
   category?: ObjectCategory;
   name?: string;
   description?: string;
+  tip?: string;
+  fact?: string;
 }
 
 export interface Player {
@@ -45,6 +47,7 @@ export interface GameState {
   
   actionLog: string[]; // Histórico de eventos
   pendingAction: PendingAction | null; // Interrupção do fluxo de turno
+  revealedHandsUntilTurnOfPlayerId?: string | null; // Visibilidade global temporária (Vazamento de Dados)
 }
 
 export type ClientMessage = 

@@ -52,8 +52,19 @@ export function Card({ card, size = "normal", onClick, selected }: CardProps) {
       ? "/Categorias/Coringa.svg"
       : null;
 
+  const tooltipText = card
+    ? [
+        card.name,
+        card.description ? `• ${card.description}` : "",
+        card.tip ? `💡 Dica: ${card.tip}` : "",
+        card.fact ? `💬 Fato: ${card.fact}` : "",
+      ]
+        .filter(Boolean)
+        .join(" ")
+    : undefined;
+
   return (
-    <div className={baseClasses} onClick={onClick}>
+    <div className={baseClasses} onClick={onClick} title={tooltipText}>
       {/* 1. Imagem de Fundo (SVG da Categoria ou Coringa) cobrindo 100% da carta */}
       {bgAsset && (
         /* eslint-disable-next-line @next/next/no-img-element */
@@ -149,6 +160,14 @@ export function Card({ card, size = "normal", onClick, selected }: CardProps) {
                 {card.description && (
                   <p className="text-[8px] sm:text-[8.5px] text-zinc-300 leading-snug line-clamp-3 mt-1 pt-1 border-t border-zinc-700">
                     {card.description}
+                  </p>
+                )}
+                {(card.tip || card.fact) && (
+                  <p
+                    className="text-[7px] sm:text-[7.5px] text-amber-300/90 leading-tight italic line-clamp-2 mt-0.5"
+                    title={card.tip ? `Dica: ${card.tip}` : `Fato: ${card.fact}`}
+                  >
+                    {card.tip ? `💡 ${card.tip}` : `💬 ${card.fact}`}
                   </p>
                 )}
               </div>

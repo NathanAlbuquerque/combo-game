@@ -44,13 +44,49 @@ export const OBJECT_CARDS_DATA: Array<{ category: ObjectCategory; name: string; 
   { category: 'INTELIGÊNCIA ARTIFICIAL E USO CRÍTICO', name: 'Identificação de deepfakes', description: 'Fique atento a vídeos e áudios que parecem artificiais.' }
 ];
 
-export const EFFECTS_CARDS_DATA = [
-  { name: 'Senha Forte', desc: 'Compre 2 cartas.' },
+export interface EffectCardData {
+  name: string;
+  desc: string;
+  tip?: string;
+  fact?: string;
+}
+
+export const EFFECTS_CARDS_DATA: EffectCardData[] = [
+  // Grupo 1: Efeitos de Resolução Direta e Imediata
+  {
+    name: 'Senha Forte',
+    desc: 'Compra 2 cartas do baralho.',
+    tip: 'Busque usar senhas com letras, números e símbolos, proteja seus dados e seja recompensado.'
+  },
+  {
+    name: 'Vazamento de Dados',
+    desc: 'Todos os jogadores jogam com as mãos reveladas até o seu próximo turno + compre 1 carta.',
+    tip: 'Evite usar a mesma senha em sites ou aplicativos diferentes.'
+  },
+  {
+    name: 'Six Seven',
+    desc: 'Todos os jogadores passam suas mãos inteiras de cartas para o jogador à esquerda.',
+    fact: 'Piadinha sem graça também tem o seu valor.'
+  },
+  {
+    name: 'Limpeza de Cache',
+    desc: 'Se você estiver com apenas 1 ou 0 cartas na mão, compre 3 cartas.',
+    tip: 'Limpar arquivos temporários e fotos repetidas deixa o seu dispositivo muito mais rápido.'
+  },
+  {
+    name: 'Engajamento Merecido',
+    desc: 'Compre 1 carta do baralho para cada Carta-Objeto que você já tiver na sua mesa.',
+    tip: 'Criar conteúdos úteis e respeitosos atrai seguidores reais sem precisar apelar para o clickbait.'
+  },
+  {
+    name: 'Formatar o Sistema',
+    desc: 'Todos os jogadores descartam suas mãos inteiras e compram 3 cartas novas do baralho.',
+    tip: 'Fazer uma formatação de fábrica apaga todos os dados mas pode remover vírus difíceis do aparelho.'
+  },
+  // Grupo 2: Efeitos com Alvo
   { name: 'Rede de Apoio', desc: 'Compre 3 cartas e escolha outro jogador para comprar 1.' },
   { name: 'Alerta de Phishing', desc: 'Escolha um jogador. Ele deve descartar 1 carta da mão à escolha dele.' },
   { name: 'Tomou Block!', desc: 'Escolha um jogador. Ele perde o próximo turno.' },
   { name: 'Vídeo Deepfake', desc: 'Troque toda a sua mão com a mão de outro jogador.' },
-  { name: 'Limpeza de Cache', desc: 'Se você tiver 0 ou 1 carta na mão (após jogar esta), compre 3 cartas.' },
-  { name: 'Engajamento Merecido', desc: 'Compre 1 carta para cada objeto que você tem baixado.' },
   { name: 'Esqueceu a Senha', desc: 'Escolha um jogador. Ele descarta 1 carta aleatória da mão.' },
 ];
