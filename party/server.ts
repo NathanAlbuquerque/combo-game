@@ -2,11 +2,20 @@ import type * as Party from "partykit/server";
 import { GameState, ClientMessage, ServerMessage, Card, Player } from "../src/types/game";
 import { OBJECT_CARDS_DATA, EFFECTS_CARDS_DATA } from "../src/data/cards";
 
+function shuffleDeck<T>(array: T[]): T[] {
+  const newArray = [...array];
+  for (let i = newArray.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [newArray[i], newArray[j]] = [newArray[j], newArray[i]];
+  }
+  return newArray;
+}
+
 function generateDeck(): Card[] {
   const deck: Card[] = [];
   let idCounter = 1;
 
-  // 30 Objetos
+  // 30 Cartas-Objeto (5 de cada uma das 6 categorias)
   OBJECT_CARDS_DATA.forEach(item => {
     deck.push({
       id: `obj_${idCounter++}`,
@@ -27,30 +36,20 @@ function generateDeck(): Card[] {
     });
   }
 
-  // Efeitos
+  // 16 Cartas de Efeito (1 cópia de cada uma das 16 cartas)
   EFFECTS_CARDS_DATA.forEach(conf => {
-    for (let i = 0; i < 2; i++) {
-      deck.push({
-        id: `eff_${idCounter++}`,
-        type: 'effect',
-        name: conf.name,
-        description: conf.desc,
-        tip: conf.tip,
-        fact: conf.fact,
-      });
-    }
+    deck.push({
+      id: `eff_${idCounter++}`,
+      type: 'effect',
+      name: conf.name,
+      description: conf.desc,
+      tip: conf.tip,
+      fact: conf.fact,
+    });
   });
 
-  return deck;
-}
-
-function shuffleDeck<T>(array: T[]): T[] {
-  const newArray = [...array];
-  for (let i = newArray.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [newArray[i], newArray[j]] = [newArray[j], newArray[i]];
-  }
-  return newArray;
+  // Embaralhamento Fisher-Yates logo após a instanciação do deck
+  return shuffleDeck(deck);
 }
 
 export default class MainServer implements Party.Server {
@@ -324,8 +323,7 @@ export default class MainServer implements Party.Server {
         const playerIds = Object.keys(this.state.players);
         if (playerIds.length === 0) return;
 
-        const newDeck = generateDeck();
-        const shuffledDeck = shuffleDeck(newDeck);
+        const shuffledDeck = generateDeck();
 
         for (const pid of playerIds) {
           const player = this.state.players[pid];

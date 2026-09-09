@@ -78,109 +78,135 @@ export function Card({ card, size = "normal", onClick, selected }: CardProps) {
 
       {/* Fundo Neutro para Cartas de Efeito */}
       {card.type === "effect" && (
-        <>
-          <div className="absolute inset-0 bg-gradient-to-b from-zinc-800 via-zinc-900 to-zinc-950 border border-zinc-700/80 rounded-xl pointer-events-none z-0" />
-          <div className="relative z-10 pt-2 flex items-center justify-center pointer-events-none">
-            <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-amber-500/20 border border-amber-500/40 flex items-center justify-center shadow-inner">
-              <span className="text-sm sm:text-base">⚡</span>
-            </div>
-          </div>
-        </>
+        <div className="absolute inset-0 bg-gradient-to-b from-zinc-800 via-zinc-900 to-zinc-950 border border-amber-500/30 rounded-xl pointer-events-none z-0 shadow-inner" />
       )}
 
-      {/* 2. Gradiente escuro de suporte para contraste e legibilidade, sem tapar o ícone no topo */}
-      <div className="absolute inset-x-0 bottom-0 h-[62%] bg-gradient-to-t from-black/95 via-black/75 to-transparent pointer-events-none z-0 rounded-b-xl" />
+      {/* 2. Gradiente escuro de suporte para contraste e legibilidade para cartas de objeto e coringa */}
+      {card.type !== "effect" && (
+        <div className="absolute inset-x-0 bottom-0 h-[62%] bg-gradient-to-t from-black/95 via-black/75 to-transparent pointer-events-none z-0 rounded-b-xl" />
+      )}
 
-      {/* 3. Conteúdo da Carta (Título, Categoria e Descrição) */}
-      <div className="relative z-10 flex flex-col justify-end h-full">
-        {card.type === "object" && (
-          <>
-            {size === "normal" ? (
-              <div className="p-2 sm:p-2.5 flex flex-col text-center text-white">
-                {card.category && (
-                  <span className="text-[7.5px] sm:text-[8px] font-bold tracking-wider text-white/70 uppercase truncate mb-0.5">
-                    {card.category}
-                  </span>
-                )}
-                <span className="font-extrabold leading-tight text-[11px] sm:text-[12px] text-white drop-shadow-md line-clamp-2">
+      {/* 3. Conteúdo da Carta (Layout dedicado para Efeitos e Objeto/Coringa) */}
+      {card.type === "effect" ? (
+        <div className="relative z-10 flex flex-col justify-between h-full w-full">
+          {size === "normal" ? (
+            <>
+              {/* Destaque no topo: Badge / Tag "EFEITO" com ícone de raio ⚡ */}
+              <div className="pt-2 px-2 flex items-center justify-center shrink-0">
+                <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-500/20 border border-amber-500/40 text-amber-400 font-extrabold tracking-widest text-[8px] sm:text-[9px] shadow-sm uppercase">
+                  <span className="text-[10px] leading-none">⚡</span>
+                  <span>EFEITO</span>
+                </div>
+              </div>
+
+              {/* Centro: Título da carta em negrito com contraste limpo + Descrição da mecânica ("Efeito: ...") */}
+              <div className="flex-1 flex flex-col items-center justify-center px-2 py-1 text-center my-auto w-full">
+                <span className="font-extrabold leading-tight text-[11px] sm:text-[12px] text-white drop-shadow-md line-clamp-2 mb-1.5">
                   {card.name}
                 </span>
                 {card.description && (
-                  <p className="text-[8px] sm:text-[8.5px] text-white/85 leading-snug line-clamp-3 mt-1 pt-1 border-t border-white/20">
-                    {card.description}
-                  </p>
+                  <div className="w-full bg-zinc-950/70 rounded-lg px-1.5 py-1 sm:py-1.5 border border-zinc-700/60 shadow-inner">
+                    <p className="text-[8.5px] sm:text-[9.5px] text-zinc-200 leading-tight font-medium line-clamp-3">
+                      <span className="text-amber-400 font-bold mr-1">Efeito:</span>
+                      {card.description}
+                    </p>
+                  </div>
                 )}
               </div>
-            ) : (
-              <div className="p-1 pb-1.5 flex flex-col text-center text-white">
-                <span className="font-extrabold leading-tight text-[8px] text-white drop-shadow-md line-clamp-2">
-                  {card.name}
-                </span>
-              </div>
-            )}
-          </>
-        )}
 
-        {card.type === "joker" && (
-          <>
-            {size === "normal" ? (
-              <div className="p-2 sm:p-2.5 flex flex-col text-center text-white">
-                <span className="text-[7.5px] sm:text-[8px] font-bold tracking-wider uppercase text-amber-300 drop-shadow-sm mb-0.5">
-                  CARTA CORINGA
-                </span>
-                <span className="font-extrabold leading-tight text-[13px] sm:text-[14px] text-white drop-shadow-md">
-                  {card.name || "Coringa"}
-                </span>
-                {card.description && (
-                  <p className="text-[8px] sm:text-[8.5px] text-white/85 leading-snug line-clamp-3 mt-1 pt-1 border-t border-white/20">
-                    {card.description}
-                  </p>
-                )}
-              </div>
-            ) : (
-              <div className="p-1 pb-1.5 flex flex-col text-center text-white">
-                <span className="font-extrabold leading-tight text-[8px] text-white drop-shadow-md">
-                  {card.name || "Coringa"}
-                </span>
-              </div>
-            )}
-          </>
-        )}
-
-        {card.type === "effect" && (
-          <>
-            {size === "normal" ? (
-              <div className="p-2 sm:p-2.5 flex flex-col text-center text-white">
-                <span className="text-[7.5px] sm:text-[8px] font-bold tracking-wider uppercase text-amber-400 drop-shadow-sm mb-0.5">
-                  EFEITO ESPECIAL
-                </span>
-                <span className="font-extrabold leading-tight text-[11px] sm:text-[12px] text-white drop-shadow-md line-clamp-2">
-                  {card.name}
-                </span>
-                {card.description && (
-                  <p className="text-[8px] sm:text-[8.5px] text-zinc-300 leading-snug line-clamp-3 mt-1 pt-1 border-t border-zinc-700">
-                    {card.description}
-                  </p>
-                )}
-                {(card.tip || card.fact) && (
+              {/* Rodapé: Exibição elegante do texto educativo com ícone sutil */}
+              {(card.tip || card.fact) && (
+                <div className="px-2 pb-2 pt-1 text-center border-t border-zinc-800/80 bg-black/40 shrink-0 w-full rounded-b-xl">
                   <p
-                    className="text-[7px] sm:text-[7.5px] text-amber-300/90 leading-tight italic line-clamp-2 mt-0.5"
+                    className="text-[8px] sm:text-[8.5px] leading-tight italic line-clamp-2 text-zinc-300"
                     title={card.tip ? `Dica: ${card.tip}` : `Fato: ${card.fact}`}
                   >
-                    {card.tip ? `💡 ${card.tip}` : `💬 ${card.fact}`}
+                    {card.tip ? (
+                      <>
+                        <span className="text-amber-400 font-bold not-italic mr-1">💡 Dica:</span>
+                        <span>{card.tip}</span>
+                      </>
+                    ) : (
+                      <>
+                        <span className="text-sky-400 font-bold not-italic mr-1">💬 Fato:</span>
+                        <span>{card.fact}</span>
+                      </>
+                    )}
                   </p>
-                )}
+                </div>
+              )}
+            </>
+          ) : (
+            <div className="flex flex-col justify-between h-full p-1 text-center">
+              <div className="pt-0.5 flex items-center justify-center shrink-0">
+                <span className="text-[9px] leading-none">⚡</span>
               </div>
-            ) : (
-              <div className="p-1 pb-1.5 flex flex-col text-center text-white">
-                <span className="font-extrabold leading-tight text-[8px] text-white drop-shadow-md line-clamp-2">
-                  {card.name}
-                </span>
-              </div>
-            )}
-          </>
-        )}
-      </div>
+              <span className="font-extrabold leading-tight text-[8px] text-white drop-shadow-md line-clamp-2">
+                {card.name}
+              </span>
+              <span className="text-[6.5px] text-amber-400/90 font-semibold uppercase tracking-wider">
+                Efeito
+              </span>
+            </div>
+          )}
+        </div>
+      ) : (
+        <div className="relative z-10 flex flex-col justify-end h-full">
+          {card.type === "object" && (
+            <>
+              {size === "normal" ? (
+                <div className="p-2 sm:p-2.5 flex flex-col text-center text-white">
+                  {card.category && (
+                    <span className="text-[7.5px] sm:text-[8px] font-bold tracking-wider text-white/70 uppercase truncate mb-0.5">
+                      {card.category}
+                    </span>
+                  )}
+                  <span className="font-extrabold leading-tight text-[11px] sm:text-[12px] text-white drop-shadow-md line-clamp-2">
+                    {card.name}
+                  </span>
+                  {card.description && (
+                    <p className="text-[8px] sm:text-[8.5px] text-white/85 leading-snug line-clamp-3 mt-1 pt-1 border-t border-white/20">
+                      {card.description}
+                    </p>
+                  )}
+                </div>
+              ) : (
+                <div className="p-1 pb-1.5 flex flex-col text-center text-white">
+                  <span className="font-extrabold leading-tight text-[8px] text-white drop-shadow-md line-clamp-2">
+                    {card.name}
+                  </span>
+                </div>
+              )}
+            </>
+          )}
+
+          {card.type === "joker" && (
+            <>
+              {size === "normal" ? (
+                <div className="p-2 sm:p-2.5 flex flex-col text-center text-white">
+                  <span className="text-[7.5px] sm:text-[8px] font-bold tracking-wider uppercase text-amber-300 drop-shadow-sm mb-0.5">
+                    CARTA CORINGA
+                  </span>
+                  <span className="font-extrabold leading-tight text-[13px] sm:text-[14px] text-white drop-shadow-md">
+                    {card.name || "Coringa"}
+                  </span>
+                  {card.description && (
+                    <p className="text-[8px] sm:text-[8.5px] text-white/85 leading-snug line-clamp-3 mt-1 pt-1 border-t border-white/20">
+                      {card.description}
+                    </p>
+                  )}
+                </div>
+              ) : (
+                <div className="p-1 pb-1.5 flex flex-col text-center text-white">
+                  <span className="font-extrabold leading-tight text-[8px] text-white drop-shadow-md">
+                    {card.name || "Coringa"}
+                  </span>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      )}
     </div>
   );
 }

@@ -1,5 +1,5 @@
 {
   "name": "combo",
   "main": "party/server.ts",
-  "serve": "public"
+  "compatibilityDate": "2026-09-09"
 }

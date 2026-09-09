@@ -52,87 +52,100 @@ export interface EffectCardData {
 }
 
 export const EFFECTS_CARDS_DATA: EffectCardData[] = [
-  // Grupo 1: Efeitos de Resolução Direta e Imediata
+  // 1. Senha Forte
   {
     name: 'Senha Forte',
     desc: 'Compra 2 cartas do baralho.',
     tip: 'Busque usar senhas com letras, números e símbolos, proteja seus dados e seja recompensado.'
   },
-  {
-    name: 'Vazamento de Dados',
-    desc: 'Todos os jogadores jogam com as mãos reveladas até o seu próximo turno + compre 1 carta.',
-    tip: 'Evite usar a mesma senha em sites ou aplicativos diferentes.'
-  },
-  {
-    name: 'Six Seven',
-    desc: 'Todos os jogadores passam suas mãos inteiras de cartas para o jogador à esquerda.',
-    fact: 'Piadinha sem graça também tem o seu valor.'
-  },
-  {
-    name: 'Limpeza de Cache',
-    desc: 'Se você estiver com apenas 1 ou 0 cartas na mão, compre 3 cartas.',
-    tip: 'Limpar arquivos temporários e fotos repetidas deixa o seu dispositivo muito mais rápido.'
-  },
-  {
-    name: 'Engajamento Merecido',
-    desc: 'Compre 1 carta do baralho para cada Carta-Objeto que você já tiver na sua mesa.',
-    tip: 'Criar conteúdos úteis e respeitosos atrai seguidores reais sem precisar apelar para o clickbait.'
-  },
-  {
-    name: 'Formatar o Sistema',
-    desc: 'Todos os jogadores descartam suas mãos inteiras e compram 3 cartas novas do baralho.',
-    tip: 'Fazer uma formatação de fábrica apaga todos os dados mas pode remover vírus difíceis do aparelho.'
-  },
-  // Grupo 2: Efeitos com Alvo e Interação
+  // 2. Senha Fraca Detectada
   {
     name: 'Senha Fraca Detectada',
     desc: 'Escolha 1 jogador. Ele revela a mão para todos os jogadores + compre 1 carta.',
     tip: "Senhas como '123456' ou datas de aniversário são descobertas mais facilmente deixando dados em risco."
   },
+  // 3. Rede de Apoio
   {
     name: 'Rede de Apoio',
     desc: 'Compre 3 cartas do baralho e escolha outro jogador para comprar 1 carta.',
     tip: 'Ajudar colegas online ajuda a tornar a rede mais segura para todos.'
   },
-  {
-    name: 'Tomou Block!',
-    desc: 'Escolha 1 jogador: ele perde a vez e não joga no próximo turno + compre 1 carta.',
-    tip: 'Bloquear e denunciar perfis desrespeitosos é o melhor jeito de manter sua rede saudável.'
-  },
-  {
-    name: 'Vídeo Deepfake',
-    desc: 'Troque toda a sua mão de cartas com a mão de qualquer outro jogador à sua escolha.',
-    fact: 'A tecnologia Deepfake troca rostos e vozes em vídeos. Tome cuidado com as mídias.'
-  },
-  {
-    name: 'Agência de Checagem',
-    desc: 'Todos os jogadores (exceto você) retornam a última carta-objeto jogada na mesa para a mão.',
-    fact: 'Agências de checagem são especialistas em desmentir boatos que circulam na internet.'
-  },
-  {
-    name: 'Esqueceu a Senha',
-    desc: 'Escolha 1 jogador. Sem olhar a mão dele, force-o a descartar 1 carta aleatória.',
-    tip: 'Usar um gerenciador de senhas confiável evita que você perca o acesso às suas próprias contas.'
-  },
-  {
-    name: 'Plágio Detectado',
-    desc: 'Escolha 1 jogador. Ele deve descartar 1 Carta-Objeto da mesa dele.',
-    tip: 'Entregar um texto inteiro feito por IA como se fosse seu é desonesto e prejudica seu aprendizado.'
-  },
-  // Grupo 3: Ações Pendentes, Reatividade e Jogada Extra
+  // 4. Prompt Perfeito
   {
     name: 'Prompt Perfeito',
     desc: 'Compre 2 cartas. Se achar um Objeto novo (categoria que você ainda não tenha na mesa), baixe-o imediatamente como ação extra.',
     tip: 'Comandos (prompts) claros e específicos geram as melhores respostas da IA.'
   },
+  // 5. Alerta de Phishing
   {
     name: 'Alerta de Phishing',
     desc: 'Escolha 1 jogador. Ele perdeu dados e deve escolher 1 carta da própria mão para descartar.',
     fact: 'Phishing é um golpe que usa e-mails e sites falsos de lojas ou bancos para enganar o usuário e roubar suas senhas.'
   },
+  // 6. Vazamento de Dados
+  {
+    name: 'Vazamento de Dados',
+    desc: 'Todos os jogadores jogam com as mãos reveladas até o seu próximo turno + compre 1 carta.',
+    tip: 'Evite usar a mesma senha em sites ou aplicativos diferentes.'
+  },
+  // 7. Six Seven
+  {
+    name: 'Six Seven',
+    desc: 'Todos os jogadores passam suas mãos inteiras de cartas para o jogador à esquerda.',
+    fact: 'Piadinha sem graça também tem o seu valor.'
+  },
+  // 8. Tomou Block!
+  {
+    name: 'Tomou Block!',
+    desc: 'Escolha 1 jogador: ele perde a vez e não joga no próximo turno + compre 1 carta.',
+    tip: 'Bloquear e denunciar perfis desrespeitosos é o melhor jeito de manter sua rede saudável.'
+  },
+  // 9. Vídeo Deepfake
+  {
+    name: 'Vídeo Deepfake',
+    desc: 'Troque toda a sua mão de cartas com a mão de qualquer outro jogador à sua escolha.',
+    fact: 'A tecnologia Deepfake troca rostos e vozes em vídeos. Tome cuidado com as mídias.'
+  },
+  // 10. Agência de Checagem
+  {
+    name: 'Agência de Checagem',
+    desc: 'Todos os jogadores (exceto você) retornam a última carta-objeto jogada na mesa para a mão.',
+    fact: 'Agências de checagem são especialistas em desmentir boatos que circulam na internet.'
+  },
+  // 11. Limpeza de Cache
+  {
+    name: 'Limpeza de Cache',
+    desc: 'Se você estiver com apenas 1 ou 0 cartas na mão, compre 3 cartas.',
+    tip: 'Limpar arquivos temporários e fotos repetidas deixa o seu dispositivo muito mais rápido.'
+  },
+  // 12. Engajamento Merecido
+  {
+    name: 'Engajamento Merecido',
+    desc: 'Compre 1 carta do baralho para cada Carta-Objeto que você já tiver na sua mesa.',
+    tip: 'Criar conteúdos úteis e respeitosos atrai seguidores reais sem precisar apelar para o clickbait.'
+  },
+  // 13. Esqueceu a Senha
+  {
+    name: 'Esqueceu a Senha',
+    desc: 'Escolha 1 jogador. Sem olhar a mão dele, force-o a descartar 1 carta aleatória.',
+    tip: 'Usar um gerenciador de senhas confiável evita que você perca o acesso às suas próprias contas.'
+  },
+  // 14. Formatar o Sistema
+  {
+    name: 'Formatar o Sistema',
+    desc: 'Todos os jogadores descartam suas mãos inteiras e compram 3 cartas novas do baralho.',
+    tip: 'Fazer uma formatação de fábrica apaga todos os dados mas pode remover vírus difíceis do aparelho.'
+  },
+  // 15. LI E ACEITO!
   {
     name: 'LI E ACEITO!',
     desc: 'Escolha 1 jogador. Ele aceitou os termos de serviços e deve te entregar 1 carta da mão à escolha dele.',
     fact: "Os 'Termos de Uso' são contratos reais; ao clicar em aceitar, você assina digitalmente."
+  },
+  // 16. Plágio Detectado
+  {
+    name: 'Plágio Detectado',
+    desc: 'Escolha 1 jogador. Ele deve descartar 1 Carta-Objeto da mesa dele.',
+    tip: 'Entregar um texto inteiro feito por IA como se fosse seu é desonesto e prejudica seu aprendizado.'
   },
 ];
