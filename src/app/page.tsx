@@ -1,13 +1,16 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useState, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 
-export default function Home() {
+function HomeContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const initialRoom = (searchParams.get("room") || searchParams.get("code") || "").toUpperCase();
+
   const [playerName, setPlayerName] = useState("");
-  const [roomCode, setRoomCode] = useState("");
+  const [roomCode, setRoomCode] = useState(initialRoom);
   const [error, setError] = useState("");
 
   const generateRoomCode = () => {
@@ -25,7 +28,7 @@ export default function Home() {
       return;
     }
     const code = generateRoomCode();
-    router.push(`/room/${code}?name=${encodeURIComponent(playerName)}`);
+    router.push(`/room/${code}?name=${encodeURIComponent(playerName.trim())}`);
   };
 
   const handleJoinRoom = () => {
@@ -33,11 +36,12 @@ export default function Home() {
       setError("Por favor, digite seu nome primeiro.");
       return;
     }
-    if (!roomCode.trim() || roomCode.length !== 6) {
+    const cleanCode = roomCode.trim().toUpperCase();
+    if (!cleanCode || cleanCode.length !== 6) {
       setError("Por favor, digite um código de sala válido (6 caracteres).");
       return;
     }
-    router.push(`/room/${roomCode.toUpperCase()}?name=${encodeURIComponent(playerName)}`);
+    router.push(`/room/${cleanCode}?name=${encodeURIComponent(playerName.trim())}`);
   };
 
   return (
@@ -100,5 +104,13 @@ export default function Home() {
         </div>
       </main>
     </div>
+  );
+}
+
+export default function Home() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-zinc-50 dark:bg-black font-sans">Carregando...</div>}>
+      <HomeContent />
+    </Suspense>
   );
 }
