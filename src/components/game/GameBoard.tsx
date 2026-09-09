@@ -1,21 +1,23 @@
-import { GameState, Player, Card as CardType } from "@/types/game";
+import { GameState } from "@/types/game";
 import { OpponentView } from "./OpponentView";
 import { PlayerHand } from "./PlayerHand";
 import { Card } from "./Card";
+import { CopyRoomButton } from "./CopyRoomButton";
 import { Button } from "@/components/ui/button";
-import { UserCircle2, HelpCircle, X } from "lucide-react";
+import { HelpCircle, X } from "lucide-react";
 import { useState } from "react";
 
 interface GameBoardProps {
   state: GameState;
   myId: string;
+  roomId?: string;
   onDraw: () => void;
   onPlay: (cardId: string, targetId?: string) => void;
   onTrade: (targetPlayerId: string) => void;
   onDiscard: (cardId: string) => void;
 }
 
-export function GameBoard({ state, myId, onDraw, onPlay, onTrade, onDiscard }: GameBoardProps) {
+export function GameBoard({ state, myId, roomId, onDraw, onPlay, onTrade, onDiscard }: GameBoardProps) {
   const [tradingMode, setTradingMode] = useState(false);
   const [targetingCardId, setTargetingCardId] = useState<string | null>(null);
   const [isHelpOpen, setIsHelpOpen] = useState(false);
@@ -102,10 +104,22 @@ export function GameBoard({ state, myId, onDraw, onPlay, onTrade, onDiscard }: G
       {/* AREA 2: Mesa Central (Deck, Descarte, Info de Turno, Minha Área) */}
       <div className="flex-1 w-full flex flex-col relative overflow-hidden">
         
-        {/* Info do Turno / Status do Jogo */}
-        <div className="absolute top-4 left-1/2 -translate-x-1/2 z-10 flex w-full max-w-xl px-4 justify-between items-start">
-          <div className="flex-1 flex justify-center">
-            <div className="bg-background/90 backdrop-blur px-6 py-2 rounded-full border shadow-sm text-center transition-all duration-300 flex flex-col items-center gap-2">
+        {/* Info do Turno / Status do Jogo / Topo da Mesa */}
+        <div className="absolute top-3 left-0 right-0 z-10 flex w-full max-w-2xl mx-auto px-4 justify-between items-start pointer-events-none">
+          {/* Botão Copiar Link da Sala (Topo da Mesa) */}
+          <div className="pointer-events-auto">
+            {roomId && (
+              <CopyRoomButton 
+                roomId={roomId} 
+                variant="outline" 
+                size="sm"
+                className="bg-background/90 backdrop-blur shadow-sm text-xs h-9" 
+              />
+            )}
+          </div>
+
+          <div className="pointer-events-auto flex-1 flex justify-center px-2">
+            <div className="bg-background/90 backdrop-blur px-4 sm:px-6 py-2 rounded-full border shadow-sm text-center transition-all duration-300 flex flex-col items-center gap-2">
               {me?.isEliminated ? (
                 <span className="text-muted-foreground font-bold text-sm">Você foi eliminado 💀</span>
               ) : isPendingMyDiscard ? (
@@ -131,12 +145,15 @@ export function GameBoard({ state, myId, onDraw, onPlay, onTrade, onDiscard }: G
           </div>
           
           {/* Botão de Ajuda */}
-          <button 
-            onClick={() => setIsHelpOpen(true)}
-            className="shrink-0 bg-card border rounded-full p-2 shadow-sm hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
-          >
-            <HelpCircle className="w-5 h-5" />
-          </button>
+          <div className="pointer-events-auto">
+            <button 
+              onClick={() => setIsHelpOpen(true)}
+              className="shrink-0 bg-card border rounded-full p-2 shadow-sm hover:bg-muted transition-colors text-muted-foreground hover:text-foreground h-9 w-9 flex items-center justify-center"
+              title="Como jogar"
+            >
+              <HelpCircle className="w-5 h-5" />
+            </button>
+          </div>
         </div>
 
         {/* Pilhas Centrais */}
@@ -152,7 +169,7 @@ export function GameBoard({ state, myId, onDraw, onPlay, onTrade, onDiscard }: G
                     <Card card={topDiscard} size="small" />
                   </div>
                 ) : (
-                  <div className="w-16 aspect-[5/7] border-2 border-dashed border-border rounded-xl flex items-center justify-center opacity-50 bg-muted">
+                  <div className="w-16 aspect-[182/252] border-2 border-dashed border-border rounded-xl flex items-center justify-center opacity-50 bg-muted">
                     <span className="text-[8px] text-muted-foreground">Vazio</span>
                   </div>
                 )}
@@ -170,7 +187,7 @@ export function GameBoard({ state, myId, onDraw, onPlay, onTrade, onDiscard }: G
                   {state.deck.length > 0 ? (
                     <Card /> // Verso
                   ) : (
-                    <div className="w-28 sm:w-32 aspect-[5/7] border-2 border-dashed border-border rounded-xl flex items-center justify-center opacity-50 bg-muted">
+                    <div className="w-28 sm:w-32 aspect-[182/252] border-2 border-dashed border-border rounded-xl flex items-center justify-center opacity-50 bg-muted">
                       <span className="text-[10px] text-muted-foreground uppercase tracking-widest">Vazio</span>
                     </div>
                   )}
@@ -224,7 +241,7 @@ export function GameBoard({ state, myId, onDraw, onPlay, onTrade, onDiscard }: G
       </div>
 
       {/* AREA 3: Minha Mão (Base) */}
-      <div className="h-1/4 max-h-[180px] w-full border-t bg-card flex flex-col shrink-0 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] z-20">
+      <div className="min-h-[175px] max-h-[200px] w-full border-t bg-card flex flex-col shrink-0 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] z-20 overflow-visible">
         <PlayerHand 
           hand={me.hand} 
           isActiveTurn={isActiveTurn || isPendingMyDiscard}
