@@ -4,9 +4,11 @@ import { useEffect, useRef, useState, Suspense } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import usePartySocket from "partysocket/react";
 import { Button } from "@/components/ui/button";
+import { BarChart3 } from "lucide-react";
 import { GameState, ServerMessage } from "@/types/game";
 import { GameBoard } from "@/components/game/GameBoard";
 import { CopyRoomButton } from "@/components/game/CopyRoomButton";
+import { MatchStatsModal } from "@/components/game/MatchStatsModal";
 
 function RoomContent() {
   const router = useRouter();
@@ -23,6 +25,7 @@ function RoomContent() {
   const [gameState, setGameState] = useState<GameState | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [toastMsg, setToastMsg] = useState<string | null>(null);
+  const [isStatsOpen, setIsStatsOpen] = useState(false);
 
   const playerNameRef = useRef(playerName);
   useEffect(() => {
@@ -284,13 +287,36 @@ function RoomContent() {
             </p>
           )}
 
-          <Button
-            onClick={() => socket.send(JSON.stringify({ type: "return_to_lobby" }))}
-            className="mt-6 w-full"
-            size="lg"
-          >
-            Voltar ao Lobby
-          </Button>
+          <div className="flex flex-col gap-2.5 w-full mt-6">
+            <Button
+              onClick={() => setIsStatsOpen(true)}
+              variant="outline"
+              size="lg"
+              className="w-full flex items-center justify-center gap-2 font-bold border-2"
+            >
+              <BarChart3 className="w-5 h-5 text-primary" />
+              Ver Estatísticas da Partida
+            </Button>
+
+            <Button
+              onClick={() => {
+                setIsStatsOpen(false);
+                socket.send(JSON.stringify({ type: "return_to_lobby" }));
+              }}
+              className="w-full font-bold"
+              size="lg"
+            >
+              Voltar ao Lobby
+            </Button>
+          </div>
+
+          <MatchStatsModal
+            isOpen={isStatsOpen}
+            onClose={() => setIsStatsOpen(false)}
+            stats={gameState.stats}
+            winnerId={gameState.winnerId}
+            players={gameState.players}
+          />
         </div>
       </div>
     );

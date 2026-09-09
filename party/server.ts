@@ -1,5 +1,5 @@
 import type * as Party from "partykit/server";
-import { GameState, ClientMessage, ServerMessage, Card, Player } from "../src/types/game";
+import { GameState, ClientMessage, ServerMessage, Card, Player, MatchStats } from "../src/types/game";
 import { OBJECT_CARDS_DATA, EFFECTS_CARDS_DATA } from "../src/data/cards";
 
 function shuffleDeck<T>(array: T[]): T[] {
@@ -71,6 +71,7 @@ export default class MainServer implements Party.Server {
       revealedHandsUntilTurnOfPlayerId: null,
       revealedPlayerIds: [],
       revealedPlayerUntilTurn: {},
+      stats: null,
     };
   }
 
@@ -79,6 +80,51 @@ export default class MainServer implements Party.Server {
     if (this.state.actionLog.length > 50) {
       this.state.actionLog.shift(); // Mantém apenas os 50 últimos logs
     }
+  }
+
+  private recordCardDrawn(playerId: string) {
+    if (!this.state.stats) return;
+    this.state.stats.totalCardsDrawn++;
+    if (!this.state.stats.playerStats[playerId]) {
+      this.state.stats.playerStats[playerId] = {
+        playerName: this.state.players[playerId]?.name || "Jogador",
+        cardsDrawn: 0,
+        effectsPlayed: 0,
+        objectsPlayed: 0,
+        eliminated: false,
+      };
+    }
+    this.state.stats.playerStats[playerId].cardsDrawn++;
+  }
+
+  private recordObjectPlayed(playerId: string) {
+    if (!this.state.stats) return;
+    this.state.stats.totalObjectsPlayed++;
+    if (!this.state.stats.playerStats[playerId]) {
+      this.state.stats.playerStats[playerId] = {
+        playerName: this.state.players[playerId]?.name || "Jogador",
+        cardsDrawn: 0,
+        effectsPlayed: 0,
+        objectsPlayed: 0,
+        eliminated: false,
+      };
+    }
+    this.state.stats.playerStats[playerId].objectsPlayed++;
+  }
+
+  private recordEffectPlayed(playerId: string) {
+    if (!this.state.stats) return;
+    this.state.stats.totalEffectsPlayed++;
+    if (!this.state.stats.playerStats[playerId]) {
+      this.state.stats.playerStats[playerId] = {
+        playerName: this.state.players[playerId]?.name || "Jogador",
+        cardsDrawn: 0,
+        effectsPlayed: 0,
+        objectsPlayed: 0,
+        eliminated: false,
+      };
+    }
+    this.state.stats.playerStats[playerId].effectsPlayed++;
   }
 
   onConnect(conn: Party.Connection) {
@@ -137,6 +183,9 @@ export default class MainServer implements Party.Server {
     player.hand = [];
     player.objectArea = [];
     player.isEliminated = true;
+    if (this.state.stats?.playerStats[playerId]) {
+      this.state.stats.playerStats[playerId].eliminated = true;
+    }
 
     if (recoveredCards.length > 0) {
       this.state.deck.push(...recoveredCards);
@@ -203,6 +252,10 @@ export default class MainServer implements Party.Server {
     if (this.state.currentTurnPlayerId) {
       this.clearExpiredReveals(this.state.currentTurnPlayerId);
     }
+
+    if (this.state.stats) {
+      this.state.stats.totalTurns++;
+    }
   }
 
   private checkEliminations(): boolean {
@@ -227,12 +280,18 @@ export default class MainServer implements Party.Server {
     if (activePlayers === 1 && lastActiveId) {
       this.state.winnerId = lastActiveId;
       this.state.status = 'finished';
+      if (this.state.stats && !this.state.stats.finishedAt) {
+        this.state.stats.finishedAt = Date.now();
+      }
       this.addLog(`🏆 ${this.state.players[lastActiveId].name} é o último sobrevivente e venceu o jogo!`);
       return true;
     }
     
     if (activePlayers === 0) {
       this.state.status = 'finished';
+      if (this.state.stats && !this.state.stats.finishedAt) {
+        this.state.stats.finishedAt = Date.now();
+      }
       this.addLog(`Empate catastrófico! Todos foram eliminados.`);
       return true;
     }
@@ -257,6 +316,9 @@ export default class MainServer implements Party.Server {
     if (uniqueCategories.size + jokersCount >= 5) {
       this.state.winnerId = playerId;
       this.state.status = 'finished';
+      if (this.state.stats && !this.state.stats.finishedAt) {
+        this.state.stats.finishedAt = Date.now();
+      }
       this.addLog(`🏆 ${p.name} fechou o Combo e venceu o jogo!`);
       return true;
     }
@@ -340,6 +402,27 @@ export default class MainServer implements Party.Server {
         this.state.revealedHandsUntilTurnOfPlayerId = null;
         this.state.revealedPlayerIds = [];
         this.state.revealedPlayerUntilTurn = {};
+
+        const initialPlayerStats: MatchStats['playerStats'] = {};
+        for (const pid of playerIds) {
+          initialPlayerStats[pid] = {
+            playerName: this.state.players[pid]?.name || "Jogador",
+            cardsDrawn: 0,
+            effectsPlayed: 0,
+            objectsPlayed: 0,
+            eliminated: false,
+          };
+        }
+
+        this.state.stats = {
+          startedAt: Date.now(),
+          totalTurns: 1,
+          totalCardsDrawn: 0,
+          totalEffectsPlayed: 0,
+          totalObjectsPlayed: 0,
+          playerStats: initialPlayerStats,
+        };
+
         this.addLog("A partida começou!");
 
         this.broadcastSync();
@@ -442,6 +525,7 @@ export default class MainServer implements Party.Server {
           const card = this.drawOneCard();
           if (card) {
             me.hand.push(card);
+            this.recordCardDrawn(me.id);
             this.addLog(`${me.name} comprou uma carta do baralho.`);
           }
           this.checkEliminations();
@@ -518,6 +602,7 @@ export default class MainServer implements Party.Server {
             }
             me.hand.splice(cardIndex, 1);
             me.objectArea.push(card);
+            this.recordObjectPlayed(me.id);
 
             if (this.state.extraPlayPlayerId === me.id) {
               this.state.extraPlayPlayerId = null;
@@ -530,6 +615,7 @@ export default class MainServer implements Party.Server {
           else if (card.type === 'joker') {
             me.hand.splice(cardIndex, 1);
             me.objectArea.push(card);
+            this.recordObjectPlayed(me.id);
             this.addLog(`${me.name} ativou um Coringa!`);
             hasWon = this.checkVictory(me.id);
           } 
@@ -567,12 +653,16 @@ export default class MainServer implements Party.Server {
             // Descarta o efeito executado da mão antes de aplicar o efeito
             me.hand.splice(cardIndex, 1);
             this.state.discard.push(card);
+            this.recordEffectPlayed(me.id);
 
             switch (card.name) {
               case 'Senha Forte':
                 for (let k = 0; k < 2; k++) {
                   const c = this.drawOneCard();
-                  if (c) me.hand.push(c);
+                  if (c) {
+                    me.hand.push(c);
+                    this.recordCardDrawn(me.id);
+                  }
                 }
                 this.addLog(`🔑 ${me.name} usou Senha Forte e comprou 2 cartas do baralho.`);
                 break;
@@ -580,7 +670,10 @@ export default class MainServer implements Party.Server {
               case 'Senha Fraca Detectada': {
                 if (!targetPlayer) break;
                 const c = this.drawOneCard();
-                if (c) me.hand.push(c);
+                if (c) {
+                  me.hand.push(c);
+                  this.recordCardDrawn(me.id);
+                }
 
                 this.state.revealedPlayerIds = Array.from(
                   new Set([...(this.state.revealedPlayerIds || []), targetPlayer.id])
@@ -596,7 +689,10 @@ export default class MainServer implements Party.Server {
               case 'Vazamento de Dados': {
                 this.state.revealedHandsUntilTurnOfPlayerId = me.id;
                 const c = this.drawOneCard();
-                if (c) me.hand.push(c);
+                if (c) {
+                  me.hand.push(c);
+                  this.recordCardDrawn(me.id);
+                }
                 this.addLog(`👁️ ${me.name} usou Vazamento de Dados! Todos jogam com as mãos reveladas até o próximo turno de ${me.name} (+1 carta comprada).`);
                 break;
               }
@@ -627,7 +723,10 @@ export default class MainServer implements Party.Server {
                 if (me.hand.length <= 1) {
                   for (let k = 0; k < 3; k++) {
                     const c = this.drawOneCard();
-                    if (c) me.hand.push(c);
+                    if (c) {
+                      me.hand.push(c);
+                      this.recordCardDrawn(me.id);
+                    }
                   }
                   this.addLog(`🧹 ${me.name} fez Limpeza de Cache e comprou 3 cartas!`);
                 } else {
@@ -639,7 +738,10 @@ export default class MainServer implements Party.Server {
                 const amountToDraw = me.objectArea.length;
                 for (let k = 0; k < amountToDraw; k++) {
                   const c = this.drawOneCard();
-                  if (c) me.hand.push(c);
+                  if (c) {
+                    me.hand.push(c);
+                    this.recordCardDrawn(me.id);
+                  }
                 }
                 this.addLog(`⭐ ${me.name} ganhou ${amountToDraw} carta(s) pelo seu Engajamento Merecido.`);
                 break;
@@ -656,7 +758,10 @@ export default class MainServer implements Party.Server {
                 for (let round = 0; round < 3; round++) {
                   for (const p of activePlayers) {
                     const c = this.drawOneCard();
-                    if (c) p.hand.push(c);
+                    if (c) {
+                      p.hand.push(c);
+                      this.recordCardDrawn(p.id);
+                    }
                   }
                 }
                 this.addLog(`💻 ${me.name} formatou o sistema! Todos descartaram suas mãos inteiras e compraram 3 cartas novas do baralho.`);
@@ -666,11 +771,17 @@ export default class MainServer implements Party.Server {
               case 'Rede de Apoio': {
                 for (let k = 0; k < 3; k++) {
                   const c = this.drawOneCard();
-                  if (c) me.hand.push(c);
+                  if (c) {
+                    me.hand.push(c);
+                    this.recordCardDrawn(me.id);
+                  }
                 }
                 if (targetPlayer) {
                   const targetCard = this.drawOneCard();
-                  if (targetCard) targetPlayer.hand.push(targetCard);
+                  if (targetCard) {
+                    targetPlayer.hand.push(targetCard);
+                    this.recordCardDrawn(targetPlayer.id);
+                  }
                   this.addLog(`🤝 ${me.name} usou Rede de Apoio: comprou 3 cartas e ${targetPlayer.name} comprou 1.`);
                 }
                 break;
@@ -679,7 +790,10 @@ export default class MainServer implements Party.Server {
               case 'Tomou Block!': {
                 if (!targetPlayer) break;
                 const c = this.drawOneCard();
-                if (c) me.hand.push(c);
+                if (c) {
+                  me.hand.push(c);
+                  this.recordCardDrawn(me.id);
+                }
                 targetPlayer.skipNextTurn = true;
                 targetPlayer.isBlocked = true;
                 this.addLog(`🚫 ${me.name} deu Block em ${targetPlayer.name}! Ele perderá a vez no próximo turno (+1 carta comprada).`);
@@ -740,7 +854,10 @@ export default class MainServer implements Party.Server {
               case 'Prompt Perfeito': {
                 for (let k = 0; k < 2; k++) {
                   const c = this.drawOneCard();
-                  if (c) me.hand.push(c);
+                  if (c) {
+                    me.hand.push(c);
+                    this.recordCardDrawn(me.id);
+                  }
                 }
 
                 const existingCategories = new Set(
@@ -843,6 +960,7 @@ export default class MainServer implements Party.Server {
         this.state.revealedHandsUntilTurnOfPlayerId = null;
         this.state.revealedPlayerIds = [];
         this.state.revealedPlayerUntilTurn = {};
+        this.state.stats = null;
 
         for (const pid of Object.keys(this.state.players)) {
           const player = this.state.players[pid];

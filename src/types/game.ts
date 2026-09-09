@@ -39,6 +39,22 @@ export type PendingAction = {
   sourceCardName: string;
 };
 
+export type MatchStats = {
+  startedAt: number;
+  finishedAt?: number;
+  totalTurns: number;
+  totalCardsDrawn: number;
+  totalEffectsPlayed: number;
+  totalObjectsPlayed: number;
+  playerStats: Record<string, {
+    playerName: string;
+    cardsDrawn: number;
+    effectsPlayed: number;
+    objectsPlayed: number;
+    eliminated: boolean;
+  }>;
+};
+
 export interface GameState {
   status: 'lobby' | 'playing' | 'finished';
   players: Record<string, Player>;
@@ -54,6 +70,7 @@ export interface GameState {
   revealedHandsUntilTurnOfPlayerId?: string | null; // Visibilidade global temporária (Vazamento de Dados)
   revealedPlayerIds?: string[]; // IDs de jogadores com mão revelada temporariamente (Senha Fraca Detectada)
   revealedPlayerUntilTurn?: Record<string, string>; // targetPlayerId -> activatorPlayerId
+  stats?: MatchStats | null; // Estatísticas consolidadas da partida
 }
 
 export type ClientMessage = 
