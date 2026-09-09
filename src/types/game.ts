@@ -32,9 +32,10 @@ export interface Player {
 }
 
 export type PendingAction = {
-  type: 'discard';
-  playerId: string;
-  amount: 1;
+  type: 'CHOOSE_CARD_TO_DISCARD' | 'CHOOSE_CARD_TO_GIVE';
+  requiredPlayerId: string; // Adversário que deve tomar a decisão
+  initiatorPlayerId: string; // Jogador que usou a carta
+  sourceCardName: string;
 };
 
 export interface GameState {
@@ -48,6 +49,7 @@ export interface GameState {
   
   actionLog: string[]; // Histórico de eventos
   pendingAction: PendingAction | null; // Interrupção do fluxo de turno
+  extraPlayPlayerId?: string | null; // Jogada extra opcional/imediata (Prompt Perfeito)
   revealedHandsUntilTurnOfPlayerId?: string | null; // Visibilidade global temporária (Vazamento de Dados)
   revealedPlayerIds?: string[]; // IDs de jogadores com mão revelada temporariamente (Senha Fraca Detectada)
   revealedPlayerUntilTurn?: Record<string, string>; // targetPlayerId -> activatorPlayerId
@@ -61,6 +63,9 @@ export type ClientMessage =
   | { type: 'play_effect'; cardId: string; targetPlayerId?: string; targetId?: string }
   | { type: 'trade_card'; targetPlayerId: string }
   | { type: 'discard_card'; cardId: string }
+  | { type: 'resolve_pending_action'; cardId: string }
+  | { type: 'skip_extra_play' }
+  | { type: 'end_turn' }
   | { type: 'return_to_lobby' };
 
 // Mensagens enviadas do servidor para o cliente

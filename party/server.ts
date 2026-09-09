@@ -67,6 +67,7 @@ export default class MainServer implements Party.Server {
       winnerId: null,
       actionLog: [],
       pendingAction: null,
+      extraPlayPlayerId: null,
       revealedHandsUntilTurnOfPlayerId: null,
       revealedPlayerIds: [],
       revealedPlayerUntilTurn: {},
@@ -108,6 +109,16 @@ export default class MainServer implements Party.Server {
     if (this.state.revealedHandsUntilTurnOfPlayerId === playerId) {
       this.state.revealedHandsUntilTurnOfPlayerId = null;
     }
+    if (this.state.extraPlayPlayerId === playerId) {
+      this.state.extraPlayPlayerId = null;
+    }
+    const hadPendingActionWithPlayer = Boolean(
+      this.state.pendingAction?.requiredPlayerId === playerId ||
+      this.state.pendingAction?.initiatorPlayerId === playerId
+    );
+    if (hadPendingActionWithPlayer) {
+      this.state.pendingAction = null;
+    }
     if (this.state.revealedPlayerIds?.includes(playerId)) {
       this.state.revealedPlayerIds = this.state.revealedPlayerIds.filter(id => id !== playerId);
     }
@@ -133,7 +144,7 @@ export default class MainServer implements Party.Server {
       this.addLog(`Cartas de ${player.name} retornaram ao baralho.`);
     }
 
-    if (this.state.currentTurnPlayerId === playerId) {
+    if (this.state.currentTurnPlayerId === playerId || hadPendingActionWithPlayer) {
       this.passTurn();
     }
   }
@@ -161,6 +172,7 @@ export default class MainServer implements Party.Server {
   }
 
   private passTurn() {
+    this.state.extraPlayPlayerId = null;
     if (!this.state.currentTurnPlayerId) return;
     const playerIds = Object.keys(this.state.players);
     if (playerIds.length === 0) return;
@@ -202,11 +214,6 @@ export default class MainServer implements Party.Server {
     for (const [id, player] of Object.entries(this.state.players)) {
       if (!player.isEliminated && player.hand.length === 0) {
         this.addLog(`💀 ${player.name} ficou sem cartas e foi eliminado!`);
-        
-        if (this.state.pendingAction?.playerId === id) {
-          this.state.pendingAction = null; // Libera se o alvo morrer
-        }
-
         this.reclaimPlayerCards(id);
       }
       
@@ -329,6 +336,8 @@ export default class MainServer implements Party.Server {
         this.state.status = "playing";
         this.state.currentTurnPlayerId = this.state.creatorId;
         this.state.actionLog = [];
+        this.state.pendingAction = null;
+        this.state.extraPlayPlayerId = null;
         this.state.revealedHandsUntilTurnOfPlayerId = null;
         this.state.revealedPlayerIds = [];
         this.state.revealedPlayerUntilTurn = {};
@@ -339,31 +348,43 @@ export default class MainServer implements Party.Server {
       }
 
       // ==========================================
-      // PENDING ACTION (Alerta de Phishing)
+      // PENDING ACTION (Alerta de Phishing & LI E ACEITO!)
       // ==========================================
       if (this.state.pendingAction && this.state.status === "playing") {
         const pAction = this.state.pendingAction;
         
-        // Só aceita mensagem do alvo E que seja discard_card
-        if (sender.id !== pAction.playerId || parsed.type !== 'discard_card') {
-           sender.send(JSON.stringify({ type: "error", message: "Aguardando o alvo descartar uma carta." }));
+        // Só aceita mensagem do requiredPlayerId E que seja resolve_pending_action ou discard_card
+        if (sender.id !== pAction.requiredPlayerId || (parsed.type !== 'resolve_pending_action' && parsed.type !== 'discard_card')) {
+           sender.send(JSON.stringify({ type: "error", message: "Aguardando outro jogador resolver a ação pendente." }));
            return;
         }
 
         const targetPlayer = this.state.players[sender.id];
+        const initiatorPlayer = this.state.players[pAction.initiatorPlayerId];
         const cIndex = targetPlayer.hand.findIndex(c => c.id === parsed.cardId);
         
         if (cIndex === -1) {
-           sender.send(JSON.stringify({ type: "error", message: "Carta não encontrada na mão." }));
+           sender.send(JSON.stringify({ type: "error", message: "Carta não encontrada na sua mão." }));
            return;
         }
 
-        // Descarta e resolve a ação
-        const discarded = targetPlayer.hand.splice(cIndex, 1)[0];
-        this.state.discard.push(discarded);
+        // Remove a carta da mão do jogador alvo
+        const chosenCard = targetPlayer.hand.splice(cIndex, 1)[0];
+
+        if (pAction.type === 'CHOOSE_CARD_TO_DISCARD') {
+          this.state.discard.push(chosenCard);
+          this.addLog(`🚨 ${targetPlayer.name} escolheu descartar "${chosenCard.name || 'Carta'}" pelo Alerta de Phishing.`);
+        } else if (pAction.type === 'CHOOSE_CARD_TO_GIVE') {
+          if (initiatorPlayer && !initiatorPlayer.isEliminated) {
+            initiatorPlayer.hand.push(chosenCard);
+            this.addLog(`📜 ${targetPlayer.name} entregou "${chosenCard.name || 'Carta'}" para ${initiatorPlayer.name} pelo LI E ACEITO!.`);
+          } else {
+            this.state.discard.push(chosenCard);
+            this.addLog(`📜 ${targetPlayer.name} descartou "${chosenCard.name || 'Carta'}", pois o jogador que usou a carta foi eliminado.`);
+          }
+        }
+
         this.state.pendingAction = null;
-        this.addLog(`${targetPlayer.name} escolheu descartar uma carta.`);
-        
         this.checkEliminations();
         this.passTurn();
         this.broadcastSync();
@@ -371,7 +392,22 @@ export default class MainServer implements Party.Server {
       }
 
       // ==========================================
-      // LÓGICA DE TURNO E AÇÕES NORMAIS
+      // PULAR / FINALIZAR JOGADA EXTRA (Prompt Perfeito)
+      // ==========================================
+      if (parsed.type === "skip_extra_play" || parsed.type === "end_turn") {
+        if (this.state.status !== "playing") return;
+        if (this.state.extraPlayPlayerId !== sender.id) {
+          sender.send(JSON.stringify({ type: "error", message: "Você não possui jogada extra pendente." }));
+          return;
+        }
+        const me = this.state.players[sender.id];
+        this.state.extraPlayPlayerId = null;
+        this.addLog(`⚡ ${me.name} finalizou a jogada extra sem baixar novo objeto.`);
+        this.passTurn();
+        this.broadcastSync();
+        return;
+      }
+
       // ==========================================
       // LÓGICA DE TURNO E AÇÕES NORMAIS
       // ==========================================
@@ -393,6 +429,12 @@ export default class MainServer implements Party.Server {
         }
 
         const me = this.state.players[sender.id];
+
+        // Se estiver na jogada extra, não pode comprar nem trocar
+        if (this.state.extraPlayPlayerId === me.id && (parsed.type === "draw_card" || parsed.type === "trade_card")) {
+          sender.send(JSON.stringify({ type: "error", message: "Durante a jogada extra do Prompt Perfeito, baixe um novo Objeto ou finalize o turno." }));
+          return;
+        }
 
         // -------------------------
         // COMPRAR
@@ -457,8 +499,17 @@ export default class MainServer implements Party.Server {
           }
           
           const card = me.hand[cardIndex];
+
+          // Se estiver na jogada extra do Prompt Perfeito, só pode baixar Objeto de categoria nova
+          if (this.state.extraPlayPlayerId === me.id) {
+            if (card.type !== 'object') {
+              sender.send(JSON.stringify({ type: "error", message: "Durante a jogada extra do Prompt Perfeito, baixe um novo Objeto ou finalize o turno." }));
+              return;
+            }
+          }
+
           let hasWon = false;
-          let endsTurn = true; // Por padrão, jogar carta passa o turno, a menos que gere pendingAction
+          let endsTurn = true; // Por padrão, jogar carta passa o turno, a menos que gere pendingAction ou extraPlay
           
           if (card.type === 'object') {
             const hasCategory = me.objectArea.some(c => c.category === card.category);
@@ -468,7 +519,13 @@ export default class MainServer implements Party.Server {
             }
             me.hand.splice(cardIndex, 1);
             me.objectArea.push(card);
-            this.addLog(`${me.name} baixou o objeto ${card.name}.`);
+
+            if (this.state.extraPlayPlayerId === me.id) {
+              this.state.extraPlayPlayerId = null;
+              this.addLog(`⚡ ${me.name} baixou o objeto ${card.name} como jogada extra do Prompt Perfeito!`);
+            } else {
+              this.addLog(`${me.name} baixou o objeto ${card.name}.`);
+            }
             hasWon = this.checkVictory(me.id);
           } 
           else if (card.type === 'joker') {
@@ -494,7 +551,8 @@ export default class MainServer implements Party.Server {
               'Vídeo Deepfake',
               'Esqueceu a Senha',
               'Plágio Detectado',
-              'Alerta de Phishing'
+              'Alerta de Phishing',
+              'LI E ACEITO!'
             ];
             if (card.name && targetEffects.includes(card.name)) {
               if (!targetPlayer || targetPlayer.id === me.id) {
@@ -680,15 +738,75 @@ export default class MainServer implements Party.Server {
                 break;
               }
 
-              case 'Alerta de Phishing':
-                if (targetPlayer!.hand.length === 0) {
-                  sender.send(JSON.stringify({ type: "error", message: "O jogador alvo não tem cartas na mão para descartar." }));
-                  return;
+              case 'Prompt Perfeito': {
+                for (let k = 0; k < 2; k++) {
+                  const c = this.drawOneCard();
+                  if (c) me.hand.push(c);
                 }
-                this.addLog(`${me.name} jogou Alerta de Phishing em ${targetPlayer!.name}, que deve escolher uma carta para descartar.`);
-                this.state.pendingAction = { type: 'discard', playerId: targetPlayer!.id, amount: 1 };
-                endsTurn = false; // Não passa o turno ainda! A vez passa após o discard_card.
+
+                const existingCategories = new Set(
+                  me.objectArea.filter(c => c.type === 'object' && c.category).map(c => c.category)
+                );
+                const hasEligibleObject = me.hand.some(
+                  c => c.type === 'object' && c.category && !existingCategories.has(c.category)
+                );
+
+                if (hasEligibleObject) {
+                  this.state.extraPlayPlayerId = me.id;
+                  endsTurn = false;
+                  this.addLog(`✨ ${me.name} usou Prompt Perfeito! Comprou 2 cartas e tem a chance de baixar um novo Objeto como jogada extra.`);
+                } else {
+                  this.addLog(`✨ ${me.name} usou Prompt Perfeito e comprou 2 cartas, mas não possui nenhum Objeto novo para baixar.`);
+                  endsTurn = true;
+                }
                 break;
+              }
+
+              case 'Alerta de Phishing': {
+                if (!targetPlayer) break;
+                if (targetPlayer.hand.length === 0) {
+                  this.addLog(`🚨 ${me.name} usou Alerta de Phishing em ${targetPlayer.name}, mas ele não possuía cartas na mão.`);
+                  endsTurn = true;
+                } else if (targetPlayer.hand.length === 1) {
+                  const discardedCard = targetPlayer.hand.splice(0, 1)[0];
+                  this.state.discard.push(discardedCard);
+                  this.addLog(`🚨 ${me.name} usou Alerta de Phishing! Como ${targetPlayer.name} só tinha 1 carta (${discardedCard.name || 'Carta'}), ela foi descartada automaticamente.`);
+                  endsTurn = true;
+                } else {
+                  this.state.pendingAction = {
+                    type: 'CHOOSE_CARD_TO_DISCARD',
+                    requiredPlayerId: targetPlayer.id,
+                    initiatorPlayerId: me.id,
+                    sourceCardName: card.name,
+                  };
+                  endsTurn = false;
+                  this.addLog(`🚨 ${me.name} jogou Alerta de Phishing em ${targetPlayer.name}, que deve escolher 1 carta da mão para descartar.`);
+                }
+                break;
+              }
+
+              case 'LI E ACEITO!': {
+                if (!targetPlayer) break;
+                if (targetPlayer.hand.length === 0) {
+                  this.addLog(`📜 ${me.name} usou LI E ACEITO! em ${targetPlayer.name}, mas ele não possuía cartas na mão.`);
+                  endsTurn = true;
+                } else if (targetPlayer.hand.length === 1) {
+                  const transferredCard = targetPlayer.hand.splice(0, 1)[0];
+                  me.hand.push(transferredCard);
+                  this.addLog(`📜 ${me.name} usou LI E ACEITO! Como ${targetPlayer.name} só tinha 1 carta (${transferredCard.name || 'Carta'}), ela foi entregue automaticamente a ${me.name}.`);
+                  endsTurn = true;
+                } else {
+                  this.state.pendingAction = {
+                    type: 'CHOOSE_CARD_TO_GIVE',
+                    requiredPlayerId: targetPlayer.id,
+                    initiatorPlayerId: me.id,
+                    sourceCardName: card.name,
+                  };
+                  endsTurn = false;
+                  this.addLog(`📜 ${me.name} jogou LI E ACEITO! em ${targetPlayer.name}, que deve escolher 1 carta da mão para entregar a ${me.name}.`);
+                }
+                break;
+              }
 
               default:
                 sender.send(JSON.stringify({ type: "error", message: "Efeito desconhecido." }));
@@ -722,6 +840,7 @@ export default class MainServer implements Party.Server {
         this.state.winnerId = null;
         this.state.actionLog = [];
         this.state.pendingAction = null;
+        this.state.extraPlayPlayerId = null;
         this.state.revealedHandsUntilTurnOfPlayerId = null;
         this.state.revealedPlayerIds = [];
         this.state.revealedPlayerUntilTurn = {};

@@ -4,7 +4,7 @@ import { PlayerHand } from "./PlayerHand";
 import { Card } from "./Card";
 import { CopyRoomButton } from "./CopyRoomButton";
 import { Button } from "@/components/ui/button";
-import { HelpCircle, X, Eye, UserCircle2 } from "lucide-react";
+import { HelpCircle, X, Eye, UserCircle2, Sparkles, AlertTriangle, FileText } from "lucide-react";
 import { useState } from "react";
 
 interface GameBoardProps {
@@ -15,9 +15,21 @@ interface GameBoardProps {
   onPlay: (cardId: string, targetId?: string) => void;
   onTrade: (targetPlayerId: string) => void;
   onDiscard: (cardId: string) => void;
+  onResolvePendingAction?: (cardId: string) => void;
+  onSkipExtraPlay?: () => void;
 }
 
-export function GameBoard({ state, myId, roomId, onDraw, onPlay, onTrade, onDiscard }: GameBoardProps) {
+export function GameBoard({
+  state,
+  myId,
+  roomId,
+  onDraw,
+  onPlay,
+  onTrade,
+  onDiscard,
+  onResolvePendingAction,
+  onSkipExtraPlay,
+}: GameBoardProps) {
   const [tradingMode, setTradingMode] = useState(false);
   const [targetingCardId, setTargetingCardId] = useState<string | null>(null);
   const [isHelpOpen, setIsHelpOpen] = useState(false);
@@ -30,21 +42,37 @@ export function GameBoard({ state, myId, roomId, onDraw, onPlay, onTrade, onDisc
   const isMyHandRevealed = isGlobalHandsRevealed || Boolean(state.revealedPlayerIds?.includes(myId));
   
   const isMyTurn = state.currentTurnPlayerId === myId;
-  const isPendingMyDiscard = state.pendingAction?.playerId === myId && state.pendingAction?.type === 'discard';
+  const isPendingMyAction = state.pendingAction?.requiredPlayerId === myId;
+  const isMyExtraPlay = state.extraPlayPlayerId === myId;
   
   // O turno é "ativo" se for minha vez normal e NÃO houver pendingAction rolando (que pausa o jogo)
   const isActiveTurn = isMyTurn && !state.pendingAction;
 
   const topDiscard = state.discard.length > 0 ? state.discard[state.discard.length - 1] : undefined;
 
-  const handlePlayCard = (cardId: string) => {
-    if (isPendingMyDiscard) {
+  const handleResolvePending = (cardId: string) => {
+    if (onResolvePendingAction) {
+      onResolvePendingAction(cardId);
+    } else {
       onDiscard(cardId);
+    }
+  };
+
+  const handlePlayCard = (cardId: string) => {
+    if (isPendingMyAction) {
+      handleResolvePending(cardId);
       return;
     }
 
     const card = me.hand.find(c => c.id === cardId);
     if (!card) return;
+
+    if (isMyExtraPlay) {
+      if (card.type === 'object') {
+        onPlay(cardId);
+      }
+      return;
+    }
     
     const targetEffects = [
       'Senha Fraca Detectada',
@@ -53,7 +81,8 @@ export function GameBoard({ state, myId, roomId, onDraw, onPlay, onTrade, onDisc
       'Vídeo Deepfake',
       'Esqueceu a Senha',
       'Plágio Detectado',
-      'Alerta de Phishing'
+      'Alerta de Phishing',
+      'LI E ACEITO!'
     ];
     if (card.type === 'effect' && card.name && targetEffects.includes(card.name)) {
       setTargetingCardId(cardId);
@@ -138,10 +167,22 @@ export function GameBoard({ state, myId, roomId, onDraw, onPlay, onTrade, onDisc
             <div className="bg-background/90 backdrop-blur px-4 sm:px-6 py-2 rounded-full border shadow-sm text-center transition-all duration-300 flex flex-col items-center gap-2">
               {me?.isEliminated ? (
                 <span className="text-muted-foreground font-bold text-sm">Você foi eliminado 💀</span>
-              ) : isPendingMyDiscard ? (
-                <span className="text-destructive font-bold animate-pulse text-sm">DESCARTE UMA CARTA AGORA!</span>
+              ) : isPendingMyAction ? (
+                <span className="text-destructive font-bold animate-pulse text-sm">
+                  {state.pendingAction?.type === 'CHOOSE_CARD_TO_DISCARD'
+                    ? "ALERTA DE PHISHING: ESCOLHA 1 CARTA PARA DESCARTAR!"
+                    : "LI E ACEITO: ESCOLHA 1 CARTA PARA ENTREGAR!"}
+                </span>
               ) : state.pendingAction ? (
-                <span className="text-amber-500 font-bold text-sm">Pausado: Aguardando descarte...</span>
+                <span className="text-amber-500 font-bold text-sm animate-pulse">
+                  {state.pendingAction.type === 'CHOOSE_CARD_TO_DISCARD'
+                    ? `Aguardando ${state.players[state.pendingAction.requiredPlayerId]?.name || 'Jogador'} descartar uma carta...`
+                    : `Aguardando ${state.players[state.pendingAction.requiredPlayerId]?.name || 'Jogador'} entregar uma carta...`}
+                </span>
+              ) : isMyExtraPlay ? (
+                <span className="text-violet-600 dark:text-violet-400 font-bold animate-pulse text-sm">
+                  Prompt Perfeito: Baixe um novo Objeto!
+                </span>
               ) : isActiveTurn ? (
                 <span className="text-primary font-bold animate-pulse text-sm">Sua vez!</span>
               ) : (
@@ -206,8 +247,8 @@ export function GameBoard({ state, myId, roomId, onDraw, onPlay, onTrade, onDisc
               <span className="text-[10px] font-bold text-primary uppercase tracking-widest bg-primary/10 px-2 py-0.5 rounded-full">Deck ({state.deck.length})</span>
               <div className="h-[140px] flex items-center justify-center">
                 <div 
-                  className={`transition-transform duration-300 ${isActiveTurn ? 'hover:-translate-y-2 cursor-pointer drop-shadow-md ring-4 ring-primary/50 ring-offset-2 ring-offset-background rounded-xl scale-105' : 'opacity-50 cursor-not-allowed grayscale'}`}
-                  onClick={() => isActiveTurn && onDraw()}
+                  className={`transition-transform duration-300 ${isActiveTurn && !isMyExtraPlay ? 'hover:-translate-y-2 cursor-pointer drop-shadow-md ring-4 ring-primary/50 ring-offset-2 ring-offset-background rounded-xl scale-105' : 'opacity-50 cursor-not-allowed grayscale'}`}
+                  onClick={() => isActiveTurn && !isMyExtraPlay && onDraw()}
                 >
                   {state.deck.length > 0 ? (
                     <Card /> // Verso
@@ -234,7 +275,7 @@ export function GameBoard({ state, myId, roomId, onDraw, onPlay, onTrade, onDisc
               </div>
             )}
 
-            {isActiveTurn && !targetingCardId && !tradingMode && me.hand.length > 0 && opponents.length > 0 && (
+            {isActiveTurn && !isMyExtraPlay && !targetingCardId && !tradingMode && me.hand.length > 0 && opponents.length > 0 && (
               <Button 
                 variant="outline"
                 size="sm"
@@ -267,7 +308,27 @@ export function GameBoard({ state, myId, roomId, onDraw, onPlay, onTrade, onDisc
 
       {/* AREA 3: Minha Mão (Base) */}
       <div className="min-h-[175px] max-h-[210px] w-full border-t bg-card flex flex-col shrink-0 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] z-20 overflow-visible relative">
-        {isMyHandRevealed && (
+        {/* Banner de Jogada Extra do Prompt Perfeito */}
+        {isMyExtraPlay && (
+          <div className="w-full bg-primary/15 border-b border-primary/30 text-foreground text-xs font-semibold py-1.5 px-4 flex items-center justify-between gap-3 animate-in fade-in">
+            <div className="flex items-center gap-2 truncate">
+              <Sparkles className="w-4 h-4 text-primary shrink-0 animate-pulse" />
+              <span className="truncate">
+                <strong>Prompt Perfeito:</strong> Você achou um novo objeto! Baixe-o ou finalize o turno.
+              </span>
+            </div>
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-7 px-3 text-xs font-bold border-primary text-primary hover:bg-primary hover:text-primary-foreground shrink-0 shadow-sm"
+              onClick={onSkipExtraPlay}
+            >
+              Pular / Finalizar Turno
+            </Button>
+          </div>
+        )}
+
+        {isMyHandRevealed && !isMyExtraPlay && (
           <div className="w-full bg-amber-500/10 border-b border-amber-500/30 text-amber-700 dark:text-amber-400 text-[11px] font-semibold py-1 px-3 flex items-center justify-center gap-1.5">
             <Eye className="w-3.5 h-3.5 shrink-0" />
             <span>
@@ -277,10 +338,60 @@ export function GameBoard({ state, myId, roomId, onDraw, onPlay, onTrade, onDisc
         )}
         <PlayerHand 
           hand={me.hand} 
-          isActiveTurn={isActiveTurn || isPendingMyDiscard}
+          isActiveTurn={isActiveTurn || isMyExtraPlay}
           onPlayCard={handlePlayCard}
         />
       </div>
+
+      {/* MODAL BLOQUEADOR DE AÇÃO PENDENTE (Phishing / LI E ACEITO!) */}
+      {isPendingMyAction && state.pendingAction && (
+        <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-card border-2 border-primary/40 text-card-foreground p-6 rounded-2xl max-w-lg w-full shadow-2xl relative animate-in zoom-in-95 duration-200 flex flex-col items-center text-center">
+            <div className="mb-4">
+              <div className="inline-flex p-3 rounded-full bg-primary/10 text-primary mb-3">
+                {state.pendingAction.type === 'CHOOSE_CARD_TO_DISCARD' ? (
+                  <AlertTriangle className="w-8 h-8 text-destructive animate-bounce" />
+                ) : (
+                  <FileText className="w-8 h-8 text-primary animate-pulse" />
+                )}
+              </div>
+              <h3 className="text-xl font-black text-foreground tracking-tight mb-1">
+                {state.pendingAction.type === 'CHOOSE_CARD_TO_DISCARD'
+                  ? '🚨 Alerta de Phishing!'
+                  : '📜 LI E ACEITO!'}
+              </h3>
+              <p className="text-sm text-muted-foreground max-w-sm mx-auto">
+                {state.pendingAction.type === 'CHOOSE_CARD_TO_DISCARD' ? (
+                  <>Escolha <strong>1 carta</strong> da sua mão para descartar.</>
+                ) : (
+                  <>
+                    Escolha <strong>1 carta</strong> da sua mão para entregar a{" "}
+                    <strong className="text-primary">
+                      {state.players[state.pendingAction.initiatorPlayerId]?.name || "adversário"}
+                    </strong>.
+                  </>
+                )}
+              </p>
+            </div>
+
+            <div className="w-full max-h-[50vh] overflow-y-auto p-3 flex flex-wrap gap-3 justify-center items-center rounded-xl bg-muted/20 border">
+              {me.hand.map((card) => (
+                <div
+                  key={card.id}
+                  className="cursor-pointer transition-transform hover:scale-105 active:scale-95 shrink-0"
+                  onClick={() => handleResolvePending(card.id)}
+                >
+                  <Card card={card} size={me.hand.length > 4 ? "small" : "normal"} />
+                </div>
+              ))}
+            </div>
+
+            <span className="text-[11px] text-muted-foreground mt-4 animate-pulse">
+              Clique em uma carta acima para confirmar sua escolha
+            </span>
+          </div>
+        </div>
+      )}
 
       {/* MODAL DE SELEÇÃO DE ALVO */}
       {targetingCardId && (

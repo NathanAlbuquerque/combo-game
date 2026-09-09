@@ -119,8 +119,20 @@ export const EFFECTS_CARDS_DATA: EffectCardData[] = [
     desc: 'Escolha 1 jogador. Ele deve descartar 1 Carta-Objeto da mesa dele.',
     tip: 'Entregar um texto inteiro feito por IA como se fosse seu é desonesto e prejudica seu aprendizado.'
   },
+  // Grupo 3: Ações Pendentes, Reatividade e Jogada Extra
+  {
+    name: 'Prompt Perfeito',
+    desc: 'Compre 2 cartas. Se achar um Objeto novo (categoria que você ainda não tenha na mesa), baixe-o imediatamente como ação extra.',
+    tip: 'Comandos (prompts) claros e específicos geram as melhores respostas da IA.'
+  },
   {
     name: 'Alerta de Phishing',
-    desc: 'Escolha um jogador. Ele deve descartar 1 carta da mão à escolha dele.'
+    desc: 'Escolha 1 jogador. Ele perdeu dados e deve escolher 1 carta da própria mão para descartar.',
+    fact: 'Phishing é um golpe que usa e-mails e sites falsos de lojas ou bancos para enganar o usuário e roubar suas senhas.'
+  },
+  {
+    name: 'LI E ACEITO!',
+    desc: 'Escolha 1 jogador. Ele aceitou os termos de serviços e deve te entregar 1 carta da mão à escolha dele.',
+    fact: "Os 'Termos de Uso' são contratos reais; ao clicar em aceitar, você assina digitalmente."
   },
 ];

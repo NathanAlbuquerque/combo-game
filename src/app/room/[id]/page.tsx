@@ -160,6 +160,10 @@ function RoomContent() {
     socket.send(JSON.stringify({ type: "trade_card", targetPlayerId }));
   const handleDiscard = (cardId: string) =>
     socket.send(JSON.stringify({ type: "discard_card", cardId }));
+  const handleResolvePendingAction = (cardId: string) =>
+    socket.send(JSON.stringify({ type: "resolve_pending_action", cardId }));
+  const handleSkipExtraPlay = () =>
+    socket.send(JSON.stringify({ type: "skip_extra_play" }));
 
   // ESTADO: LOBBY
   if (gameState.status === "lobby") {
@@ -307,6 +311,8 @@ function RoomContent() {
         onPlay={handlePlay}
         onTrade={handleTrade}
         onDiscard={handleDiscard}
+        onResolvePendingAction={handleResolvePendingAction}
+        onSkipExtraPlay={handleSkipExtraPlay}
       />
     </>
   );
