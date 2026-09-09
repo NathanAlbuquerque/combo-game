@@ -94,7 +94,7 @@ export function OpponentView({
         <span className="mt-2 text-[10px] uppercase font-bold text-muted-foreground bg-muted px-2 py-0.5 rounded shadow-inner">
           Eliminado 💀
         </span>
-      ) : player.skipNextTurn ? (
+      ) : (player.skipNextTurn || player.isBlocked) ? (
         <span className="mt-2 text-[10px] uppercase font-bold text-destructive bg-destructive/10 px-2 py-0.5 rounded">
           Bloqueado
         </span>

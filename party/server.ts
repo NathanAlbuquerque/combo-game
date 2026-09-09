@@ -68,6 +68,8 @@ export default class MainServer implements Party.Server {
       actionLog: [],
       pendingAction: null,
       revealedHandsUntilTurnOfPlayerId: null,
+      revealedPlayerIds: [],
+      revealedPlayerUntilTurn: {},
     };
   }
 
@@ -106,6 +108,19 @@ export default class MainServer implements Party.Server {
     if (this.state.revealedHandsUntilTurnOfPlayerId === playerId) {
       this.state.revealedHandsUntilTurnOfPlayerId = null;
     }
+    if (this.state.revealedPlayerIds?.includes(playerId)) {
+      this.state.revealedPlayerIds = this.state.revealedPlayerIds.filter(id => id !== playerId);
+    }
+    if (this.state.revealedPlayerUntilTurn) {
+      delete this.state.revealedPlayerUntilTurn[playerId];
+      const targetsToClear = Object.keys(this.state.revealedPlayerUntilTurn).filter(
+        tId => this.state.revealedPlayerUntilTurn![tId] === playerId
+      );
+      for (const tId of targetsToClear) {
+        delete this.state.revealedPlayerUntilTurn[tId];
+        this.state.revealedPlayerIds = (this.state.revealedPlayerIds || []).filter(id => id !== tId);
+      }
+    }
 
     const recoveredCards = [...player.hand, ...player.objectArea];
     player.hand = [];
@@ -120,6 +135,28 @@ export default class MainServer implements Party.Server {
 
     if (this.state.currentTurnPlayerId === playerId) {
       this.passTurn();
+    }
+  }
+
+  private clearExpiredReveals(playerId: string) {
+    if (this.state.revealedHandsUntilTurnOfPlayerId === playerId) {
+      this.state.revealedHandsUntilTurnOfPlayerId = null;
+      this.addLog("O efeito de Vazamento de Dados terminou. As mãos voltaram a ser secretas.");
+    }
+    if (this.state.revealedPlayerUntilTurn) {
+      const targetsToClear = Object.keys(this.state.revealedPlayerUntilTurn).filter(
+        tId => this.state.revealedPlayerUntilTurn![tId] === playerId
+      );
+      if (targetsToClear.length > 0) {
+        this.state.revealedPlayerIds = (this.state.revealedPlayerIds || []).filter(
+          id => !targetsToClear.includes(id)
+        );
+        for (const tId of targetsToClear) {
+          delete this.state.revealedPlayerUntilTurn[tId];
+          const targetName = this.state.players[tId]?.name || "Jogador";
+          this.addLog(`A mão de ${targetName} voltou a ser secreta.`);
+        }
+      }
     }
   }
 
@@ -139,26 +176,20 @@ export default class MainServer implements Party.Server {
         continue; // Pula os eliminados sumariamente
       }
       
-      if (nextPlayer.skipNextTurn) {
+      if (nextPlayer.skipNextTurn || nextPlayer.isBlocked) {
         nextPlayer.skipNextTurn = false;
-        this.addLog(`${nextPlayer.name} perdeu a vez pelo block!`);
-        if (this.state.revealedHandsUntilTurnOfPlayerId === nextId) {
-          this.state.revealedHandsUntilTurnOfPlayerId = null;
-          this.addLog("O efeito de Vazamento de Dados terminou. As mãos voltaram a ser secretas.");
-        }
+        nextPlayer.isBlocked = false;
+        this.addLog(`🚫 ${nextPlayer.name} perdeu a vez pelo block!`);
+        this.clearExpiredReveals(nextId);
       } else {
         this.state.currentTurnPlayerId = nextId;
         break;
       }
     }
 
-    // Se o turno voltou para o jogador que ativou Vazamento de Dados, limpa a flag
-    if (
-      this.state.revealedHandsUntilTurnOfPlayerId &&
-      this.state.currentTurnPlayerId === this.state.revealedHandsUntilTurnOfPlayerId
-    ) {
-      this.state.revealedHandsUntilTurnOfPlayerId = null;
-      this.addLog("O efeito de Vazamento de Dados terminou. As mãos voltaram a ser secretas.");
+    // Se o turno voltou para o jogador que ativou revelações, limpa as flags expiradas
+    if (this.state.currentTurnPlayerId) {
+      this.clearExpiredReveals(this.state.currentTurnPlayerId);
     }
   }
 
@@ -299,6 +330,8 @@ export default class MainServer implements Party.Server {
         this.state.currentTurnPlayerId = this.state.creatorId;
         this.state.actionLog = [];
         this.state.revealedHandsUntilTurnOfPlayerId = null;
+        this.state.revealedPlayerIds = [];
+        this.state.revealedPlayerUntilTurn = {};
         this.addLog("A partida começou!");
 
         this.broadcastSync();
@@ -340,7 +373,9 @@ export default class MainServer implements Party.Server {
       // ==========================================
       // LÓGICA DE TURNO E AÇÕES NORMAIS
       // ==========================================
-      const gameActions = ["draw_card", "play_card", "trade_card"];
+      // LÓGICA DE TURNO E AÇÕES NORMAIS
+      // ==========================================
+      const gameActions = ["draw_card", "play_card", "play_effect", "trade_card"];
       if (gameActions.includes(parsed.type)) {
         if (this.state.status !== "playing") {
           sender.send(JSON.stringify({ type: "error", message: "O jogo não está em andamento." }));
@@ -412,9 +447,9 @@ export default class MainServer implements Party.Server {
         }
 
         // -------------------------
-        // JOGAR CARTA
+        // JOGAR CARTA / EFEITO
         // -------------------------
-        if (parsed.type === "play_card") {
+        if (parsed.type === "play_card" || parsed.type === "play_effect") {
           const cardIndex = me.hand.findIndex(c => c.id === parsed.cardId);
           if (cardIndex === -1) {
             sender.send(JSON.stringify({ type: "error", message: "Carta não encontrada na sua mão." }));
@@ -445,12 +480,22 @@ export default class MainServer implements Party.Server {
           else if (card.type === 'effect') {
             // RESOLUÇÃO DE EFEITOS
             let targetPlayer: Player | undefined;
-            if (parsed.targetId) {
-              targetPlayer = this.state.players[parsed.targetId];
+            const targetId = ('targetPlayerId' in parsed ? parsed.targetPlayerId : undefined) ||
+                             ('targetId' in parsed ? parsed.targetId : undefined);
+            if (targetId) {
+              targetPlayer = this.state.players[targetId];
             }
 
             // Validação para efeitos que exigem alvo
-            const targetEffects = ['Rede de Apoio', 'Alerta de Phishing', 'Tomou Block!', 'Vídeo Deepfake', 'Esqueceu a Senha'];
+            const targetEffects = [
+              'Senha Fraca Detectada',
+              'Rede de Apoio',
+              'Tomou Block!',
+              'Vídeo Deepfake',
+              'Esqueceu a Senha',
+              'Plágio Detectado',
+              'Alerta de Phishing'
+            ];
             if (card.name && targetEffects.includes(card.name)) {
               if (!targetPlayer || targetPlayer.id === me.id) {
                 sender.send(JSON.stringify({ type: "error", message: "Você precisa escolher outro jogador como alvo válido." }));
@@ -474,6 +519,22 @@ export default class MainServer implements Party.Server {
                 }
                 this.addLog(`🔑 ${me.name} usou Senha Forte e comprou 2 cartas do baralho.`);
                 break;
+
+              case 'Senha Fraca Detectada': {
+                if (!targetPlayer) break;
+                const c = this.drawOneCard();
+                if (c) me.hand.push(c);
+
+                this.state.revealedPlayerIds = Array.from(
+                  new Set([...(this.state.revealedPlayerIds || []), targetPlayer.id])
+                );
+                this.state.revealedPlayerUntilTurn = {
+                  ...(this.state.revealedPlayerUntilTurn || {}),
+                  [targetPlayer.id]: me.id
+                };
+                this.addLog(`🔍 ${me.name} detectou Senha Fraca de ${targetPlayer.name}! A mão de ${targetPlayer.name} foi revelada a todos (+1 carta comprada).`);
+                break;
+              }
 
               case 'Vazamento de Dados': {
                 this.state.revealedHandsUntilTurnOfPlayerId = me.id;
@@ -553,8 +614,69 @@ export default class MainServer implements Party.Server {
                 if (targetPlayer) {
                   const targetCard = this.drawOneCard();
                   if (targetCard) targetPlayer.hand.push(targetCard);
+                  this.addLog(`🤝 ${me.name} usou Rede de Apoio: comprou 3 cartas e ${targetPlayer.name} comprou 1.`);
                 }
-                this.addLog(`${me.name} usou Rede de Apoio: Comprou 3 cartas e fez ${targetPlayer!.name} comprar 1.`);
+                break;
+              }
+
+              case 'Tomou Block!': {
+                if (!targetPlayer) break;
+                const c = this.drawOneCard();
+                if (c) me.hand.push(c);
+                targetPlayer.skipNextTurn = true;
+                targetPlayer.isBlocked = true;
+                this.addLog(`🚫 ${me.name} deu Block em ${targetPlayer.name}! Ele perderá a vez no próximo turno (+1 carta comprada).`);
+                break;
+              }
+
+              case 'Vídeo Deepfake': {
+                if (!targetPlayer) break;
+                const tempHand = me.hand;
+                me.hand = targetPlayer.hand;
+                targetPlayer.hand = tempHand;
+                this.addLog(`🎭 ${me.name} usou Vídeo Deepfake e trocou de mão com ${targetPlayer.name}!`);
+                break;
+              }
+
+              case 'Agência de Checagem': {
+                let returnedCount = 0;
+                for (const [pid, player] of Object.entries(this.state.players)) {
+                  if (pid !== me.id && !player.isEliminated && player.objectArea.length > 0) {
+                    const returnedCard = player.objectArea.pop()!;
+                    player.hand.push(returnedCard);
+                    returnedCount++;
+                  }
+                }
+                if (returnedCount > 0) {
+                  this.addLog(`🔎 ${me.name} acionou a Agência de Checagem! ${returnedCount} adversário(s) devolveram o último objeto da mesa para a mão.`);
+                } else {
+                  this.addLog(`🔎 ${me.name} acionou a Agência de Checagem, mas nenhum adversário possuía objetos na mesa.`);
+                }
+                break;
+              }
+
+              case 'Esqueceu a Senha': {
+                if (!targetPlayer) break;
+                if (targetPlayer.hand.length > 0) {
+                  const randomIndex = Math.floor(Math.random() * targetPlayer.hand.length);
+                  const discardedCard = targetPlayer.hand.splice(randomIndex, 1)[0];
+                  this.state.discard.push(discardedCard);
+                  this.addLog(`🔒 ${me.name} usou Esqueceu a Senha! ${targetPlayer.name} descartou 1 carta aleatória (${discardedCard.name || 'Carta'}).`);
+                } else {
+                  this.addLog(`🔒 ${me.name} usou Esqueceu a Senha contra ${targetPlayer.name}, mas ele não possuía cartas na mão.`);
+                }
+                break;
+              }
+
+              case 'Plágio Detectado': {
+                if (!targetPlayer) break;
+                if (targetPlayer.objectArea.length > 0) {
+                  const discardedObj = targetPlayer.objectArea.pop()!;
+                  this.state.discard.push(discardedObj);
+                  this.addLog(`🚨 ${me.name} detectou Plágio de ${targetPlayer.name}! O objeto "${discardedObj.name}" foi removido da mesa e descartado.`);
+                } else {
+                  this.addLog(`🚨 ${me.name} usou Plágio Detectado contra ${targetPlayer.name}, mas ele não possuía objetos na mesa.`);
+                }
                 break;
               }
 
@@ -566,30 +688,6 @@ export default class MainServer implements Party.Server {
                 this.addLog(`${me.name} jogou Alerta de Phishing em ${targetPlayer!.name}, que deve escolher uma carta para descartar.`);
                 this.state.pendingAction = { type: 'discard', playerId: targetPlayer!.id, amount: 1 };
                 endsTurn = false; // Não passa o turno ainda! A vez passa após o discard_card.
-                break;
-
-              case 'Tomou Block!':
-                targetPlayer!.skipNextTurn = true;
-                this.addLog(`${me.name} deu Block em ${targetPlayer!.name}! Próximo turno dele será pulado.`);
-                break;
-
-              case 'Vídeo Deepfake': {
-                const tempHand = [...me.hand];
-                me.hand = [...targetPlayer!.hand];
-                targetPlayer!.hand = tempHand;
-                this.addLog(`${me.name} trocou TODA a sua mão com a de ${targetPlayer!.name}!`);
-                break;
-              }
-
-              case 'Esqueceu a Senha':
-                if (targetPlayer!.hand.length > 0) {
-                  const rIdx = Math.floor(Math.random() * targetPlayer!.hand.length);
-                  const discardedR = targetPlayer!.hand.splice(rIdx, 1)[0];
-                  this.state.discard.push(discardedR);
-                  this.addLog(`${me.name} fez ${targetPlayer!.name} esquecer a senha e perder 1 carta aleatória.`);
-                } else {
-                  this.addLog(`${me.name} usou Esqueceu a Senha em ${targetPlayer!.name}, mas ele não tinha cartas.`);
-                }
                 break;
 
               default:
@@ -625,12 +723,15 @@ export default class MainServer implements Party.Server {
         this.state.actionLog = [];
         this.state.pendingAction = null;
         this.state.revealedHandsUntilTurnOfPlayerId = null;
+        this.state.revealedPlayerIds = [];
+        this.state.revealedPlayerUntilTurn = {};
 
         for (const pid of Object.keys(this.state.players)) {
           const player = this.state.players[pid];
           player.hand = [];
           player.objectArea = [];
           player.skipNextTurn = false;
+          player.isBlocked = false;
           player.isEliminated = false;
         }
 

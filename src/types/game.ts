@@ -27,6 +27,7 @@ export interface Player {
   hand: Card[];
   objectArea: Card[]; 
   skipNextTurn?: boolean; // Controle de bloqueio
+  isBlocked?: boolean; // Controle de bloqueio (Tomou Block!)
   isEliminated?: boolean; // Jogador sem cartas perde
 }
 
@@ -48,13 +49,16 @@ export interface GameState {
   actionLog: string[]; // Histórico de eventos
   pendingAction: PendingAction | null; // Interrupção do fluxo de turno
   revealedHandsUntilTurnOfPlayerId?: string | null; // Visibilidade global temporária (Vazamento de Dados)
+  revealedPlayerIds?: string[]; // IDs de jogadores com mão revelada temporariamente (Senha Fraca Detectada)
+  revealedPlayerUntilTurn?: Record<string, string>; // targetPlayerId -> activatorPlayerId
 }
 
 export type ClientMessage = 
   | { type: 'join'; name: string }
   | { type: 'start_game' }
   | { type: 'draw_card' }
-  | { type: 'play_card'; cardId: string; targetId?: string }
+  | { type: 'play_card'; cardId: string; targetId?: string; targetPlayerId?: string }
+  | { type: 'play_effect'; cardId: string; targetPlayerId?: string; targetId?: string }
   | { type: 'trade_card'; targetPlayerId: string }
   | { type: 'discard_card'; cardId: string }
   | { type: 'return_to_lobby' };

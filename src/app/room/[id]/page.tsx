@@ -155,7 +155,7 @@ function RoomContent() {
   const handleStartGame = () => socket.send(JSON.stringify({ type: "start_game" }));
   const handleDraw = () => socket.send(JSON.stringify({ type: "draw_card" }));
   const handlePlay = (cardId: string, targetId?: string) =>
-    socket.send(JSON.stringify({ type: "play_card", cardId, targetId }));
+    socket.send(JSON.stringify({ type: "play_card", cardId, targetId, targetPlayerId: targetId }));
   const handleTrade = (targetPlayerId: string) =>
     socket.send(JSON.stringify({ type: "trade_card", targetPlayerId }));
   const handleDiscard = (cardId: string) =>

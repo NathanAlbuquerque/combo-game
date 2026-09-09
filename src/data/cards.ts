@@ -83,10 +83,44 @@ export const EFFECTS_CARDS_DATA: EffectCardData[] = [
     desc: 'Todos os jogadores descartam suas mãos inteiras e compram 3 cartas novas do baralho.',
     tip: 'Fazer uma formatação de fábrica apaga todos os dados mas pode remover vírus difíceis do aparelho.'
   },
-  // Grupo 2: Efeitos com Alvo
-  { name: 'Rede de Apoio', desc: 'Compre 3 cartas e escolha outro jogador para comprar 1.' },
-  { name: 'Alerta de Phishing', desc: 'Escolha um jogador. Ele deve descartar 1 carta da mão à escolha dele.' },
-  { name: 'Tomou Block!', desc: 'Escolha um jogador. Ele perde o próximo turno.' },
-  { name: 'Vídeo Deepfake', desc: 'Troque toda a sua mão com a mão de outro jogador.' },
-  { name: 'Esqueceu a Senha', desc: 'Escolha um jogador. Ele descarta 1 carta aleatória da mão.' },
+  // Grupo 2: Efeitos com Alvo e Interação
+  {
+    name: 'Senha Fraca Detectada',
+    desc: 'Escolha 1 jogador. Ele revela a mão para todos os jogadores + compre 1 carta.',
+    tip: "Senhas como '123456' ou datas de aniversário são descobertas mais facilmente deixando dados em risco."
+  },
+  {
+    name: 'Rede de Apoio',
+    desc: 'Compre 3 cartas do baralho e escolha outro jogador para comprar 1 carta.',
+    tip: 'Ajudar colegas online ajuda a tornar a rede mais segura para todos.'
+  },
+  {
+    name: 'Tomou Block!',
+    desc: 'Escolha 1 jogador: ele perde a vez e não joga no próximo turno + compre 1 carta.',
+    tip: 'Bloquear e denunciar perfis desrespeitosos é o melhor jeito de manter sua rede saudável.'
+  },
+  {
+    name: 'Vídeo Deepfake',
+    desc: 'Troque toda a sua mão de cartas com a mão de qualquer outro jogador à sua escolha.',
+    fact: 'A tecnologia Deepfake troca rostos e vozes em vídeos. Tome cuidado com as mídias.'
+  },
+  {
+    name: 'Agência de Checagem',
+    desc: 'Todos os jogadores (exceto você) retornam a última carta-objeto jogada na mesa para a mão.',
+    fact: 'Agências de checagem são especialistas em desmentir boatos que circulam na internet.'
+  },
+  {
+    name: 'Esqueceu a Senha',
+    desc: 'Escolha 1 jogador. Sem olhar a mão dele, force-o a descartar 1 carta aleatória.',
+    tip: 'Usar um gerenciador de senhas confiável evita que você perca o acesso às suas próprias contas.'
+  },
+  {
+    name: 'Plágio Detectado',
+    desc: 'Escolha 1 jogador. Ele deve descartar 1 Carta-Objeto da mesa dele.',
+    tip: 'Entregar um texto inteiro feito por IA como se fosse seu é desonesto e prejudica seu aprendizado.'
+  },
+  {
+    name: 'Alerta de Phishing',
+    desc: 'Escolha um jogador. Ele deve descartar 1 carta da mão à escolha dele.'
+  },
 ];
