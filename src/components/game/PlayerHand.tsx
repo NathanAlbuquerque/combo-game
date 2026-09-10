@@ -16,19 +16,35 @@ export function PlayerHand({ hand, isActiveTurn, onCardClick }: PlayerHandProps)
           {isActiveTurn && <span className="text-xs text-primary animate-pulse">Compre uma carta do baralho!</span>}
         </div>
       ) : (
-        <div className="flex relative items-end" style={{ width: Math.min(hand.length * 60 + 40, 100) + '%' }}>
+        <div className="flex relative items-end justify-center max-w-full overflow-x-auto scrollbar-none px-2 pb-1">
           {hand.map((card, index) => {
-            // Se houver muitas cartas, aplicamos overlap dinâmico
-            const rotation = (index - (hand.length - 1) / 2) * 5;
-            const translateY = Math.abs(index - (hand.length - 1) / 2) * 2;
+            // Rotação e sobreposição dinâmicas ajustadas para a largura mobile de até 480px
+            const maxArc = hand.length > 5 ? 18 : 12;
+            const stepRotation = hand.length > 1 ? Math.min(5, (maxArc * 2) / (hand.length - 1)) : 0;
+            const rotation = (index - (hand.length - 1) / 2) * stepRotation;
+            const translateY = Math.abs(index - (hand.length - 1) / 2) * 1.5;
+
+            // Overlap progressivo para acomodar várias cartas sem quebrar a tela
+            const overlapClass =
+              index === 0
+                ? ""
+                : hand.length <= 3
+                ? "-ml-4 sm:-ml-5"
+                : hand.length <= 4
+                ? "-ml-6 sm:-ml-7"
+                : hand.length <= 5
+                ? "-ml-8 sm:-ml-9"
+                : hand.length <= 6
+                ? "-ml-10 sm:-ml-11"
+                : "-ml-12 sm:-ml-14";
             
             return (
               <div 
                 key={card.id} 
-                className={`relative -ml-6 first:ml-0 transition-transform duration-200 cursor-pointer hover:z-50 focus-within:z-50 ${
+                className={`relative ${overlapClass} transition-transform duration-200 cursor-pointer hover:z-50 focus-within:z-50 ${
                   isActiveTurn
-                    ? 'hover:-translate-y-6'
-                    : 'opacity-85 hover:opacity-100 hover:-translate-y-4'
+                    ? 'hover:-translate-y-6 hover:scale-105'
+                    : 'opacity-85 hover:opacity-100 hover:-translate-y-4 hover:scale-102'
                 }`}
                 style={{ 
                   zIndex: index,

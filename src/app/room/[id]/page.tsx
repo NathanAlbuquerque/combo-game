@@ -105,60 +105,67 @@ function RoomContent() {
   // FLUXO DE ENTRADA COM NOME (para quem acessa diretamente por link de compartilhamento)
   if (!playerName) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen bg-zinc-50 dark:bg-black p-4 font-sans">
-        <main className="w-full max-w-md bg-card text-card-foreground p-8 rounded-xl shadow-sm border flex flex-col gap-6">
-          <div className="text-center">
-            <h1 className="text-3xl font-bold tracking-tight mb-2">Combo</h1>
-            <p className="text-muted-foreground text-sm">
-              Você foi convidado para a sala{" "}
-              <span className="font-mono font-bold text-primary tracking-widest">{roomId}</span>
-            </p>
-          </div>
-
-          <form onSubmit={handleJoinWithName} className="space-y-4">
-            <div className="space-y-2">
-              <label htmlFor="playerName" className="text-sm font-medium">
-                Digite seu nome para entrar:
-              </label>
-              <input
-                id="playerName"
-                type="text"
-                value={inputName}
-                onChange={(e) => {
-                  setInputName(e.target.value);
-                  setNameError("");
-                }}
-                placeholder="Ex: Maria"
-                className="w-full p-2 rounded border bg-background"
-                autoFocus
-              />
-              {nameError && <p className="text-sm text-red-500 font-medium">{nameError}</p>}
+      <div className="min-h-screen w-full bg-zinc-950 bg-gradient-to-b from-zinc-900/60 via-zinc-950 to-black flex justify-center items-center overflow-x-hidden font-sans">
+        <div className="w-full max-w-[440px] sm:max-w-[480px] min-h-[100dvh] bg-background shadow-2xl relative flex flex-col justify-center p-6 border-x border-border/40">
+          <main className="w-full bg-card text-card-foreground p-6 sm:p-8 rounded-2xl shadow-sm border flex flex-col gap-6">
+            <div className="text-center">
+              <div className="inline-flex items-center justify-center px-3 py-1 rounded-full bg-primary/10 border border-primary/20 text-primary font-mono text-xs font-bold uppercase tracking-widest mb-3">
+                Convite de Partida
+              </div>
+              <h1 className="text-3xl font-black tracking-tight mb-1">Combo</h1>
+              <p className="text-muted-foreground text-xs">
+                Entrando na sala{" "}
+                <span className="font-mono font-bold text-primary tracking-widest">{roomId}</span>
+              </p>
             </div>
 
-            <Button type="submit" className="w-full">
-              Entrar na Sala
-            </Button>
-          </form>
+            <form onSubmit={handleJoinWithName} className="space-y-4">
+              <div className="space-y-2">
+                <label htmlFor="playerName" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                  Digite seu nome para entrar:
+                </label>
+                <input
+                  id="playerName"
+                  type="text"
+                  value={inputName}
+                  onChange={(e) => {
+                    setInputName(e.target.value);
+                    setNameError("");
+                  }}
+                  placeholder="Ex: Maria"
+                  className="w-full p-2.5 rounded-xl border bg-background text-sm font-medium"
+                  autoFocus
+                />
+                {nameError && <p className="text-xs text-red-500 font-medium">{nameError}</p>}
+              </div>
 
-          <div className="text-center pt-2 border-t">
-            <Button variant="ghost" size="sm" onClick={() => router.push("/")}>
-              Voltar para o Início
-            </Button>
-          </div>
-        </main>
+              <Button type="submit" className="w-full font-bold h-11">
+                Entrar na Sala
+              </Button>
+            </form>
+
+            <div className="text-center pt-2 border-t">
+              <Button variant="ghost" size="sm" onClick={() => router.push("/")} className="text-xs text-muted-foreground">
+                Voltar para o Início
+              </Button>
+            </div>
+          </main>
+        </div>
       </div>
     );
   }
 
   if (errorMsg && !gameState) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen bg-zinc-50 dark:bg-black p-4">
-        <div className="bg-destructive text-destructive-foreground p-6 rounded-lg max-w-sm text-center shadow-lg">
-          <h2 className="text-xl font-bold mb-2">Erro</h2>
-          <p className="mb-4">{errorMsg}</p>
-          <Button variant="secondary" onClick={() => router.push("/")} className="w-full">
-            Voltar para o Início
-          </Button>
+      <div className="min-h-screen w-full bg-zinc-950 bg-gradient-to-b from-zinc-900/60 via-zinc-950 to-black flex justify-center items-center overflow-x-hidden font-sans">
+        <div className="w-full max-w-[440px] sm:max-w-[480px] min-h-[100dvh] bg-background shadow-2xl relative flex flex-col justify-center items-center p-6 border-x border-border/40">
+          <div className="bg-destructive text-destructive-foreground p-6 rounded-2xl max-w-sm text-center shadow-lg w-full">
+            <h2 className="text-xl font-bold mb-2">Erro</h2>
+            <p className="mb-4 text-sm">{errorMsg}</p>
+            <Button variant="secondary" onClick={() => router.push("/")} className="w-full font-bold">
+              Voltar para o Início
+            </Button>
+          </div>
         </div>
       </div>
     );
@@ -166,8 +173,10 @@ function RoomContent() {
 
   if (!gameState) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-zinc-50 dark:bg-black">
-        <p className="animate-pulse">Conectando à sala {roomId}...</p>
+      <div className="min-h-screen w-full bg-zinc-950 bg-gradient-to-b from-zinc-900/60 via-zinc-950 to-black flex justify-center items-center overflow-x-hidden font-sans">
+        <div className="w-full max-w-[440px] sm:max-w-[480px] min-h-[100dvh] bg-background shadow-2xl relative flex flex-col justify-center items-center p-6 border-x border-border/40">
+          <p className="animate-pulse text-muted-foreground text-sm font-medium">Conectando à sala {roomId}...</p>
+        </div>
       </div>
     );
   }
@@ -196,55 +205,75 @@ function RoomContent() {
     const playersList = Object.values(gameState.players);
 
     return (
-      <div className="flex flex-col items-center p-4 min-h-screen bg-zinc-50 dark:bg-black font-sans">
-        <header className="w-full max-w-3xl flex flex-wrap items-center justify-between gap-4 py-6">
-          <div>
-            <h1 className="text-2xl font-bold flex items-center gap-2">
-              Sala: <span className="text-primary tracking-widest font-mono">{roomId}</span>
-            </h1>
-            <p className="text-sm text-muted-foreground">Aguardando jogadores...</p>
-          </div>
-          <div className="flex items-center gap-2">
-            <CopyRoomButton roomId={roomId} showTextOnMobile />
-            <Button variant="outline" onClick={() => router.push("/")}>
-              Sair da Sala
-            </Button>
-          </div>
-        </header>
-
-        <main className="w-full max-w-3xl bg-card border rounded-lg p-6 shadow-sm">
-          <div className="flex flex-wrap items-center justify-between gap-2 p-3 mb-6 bg-muted/60 border rounded-lg">
-            <div className="text-sm text-muted-foreground">
-              Convide amigos para jogar enviando o link direto da sala:
+      <div className="min-h-screen w-full bg-zinc-950 bg-gradient-to-b from-zinc-900/60 via-zinc-950 to-black flex justify-center items-center overflow-x-hidden font-sans">
+        <div className="w-full max-w-[440px] sm:max-w-[480px] min-h-[100dvh] bg-background shadow-2xl relative flex flex-col justify-between p-4 sm:p-6 overflow-hidden border-x border-border/40">
+          <header className="w-full flex items-center justify-between gap-2 pb-3 border-b">
+            <div>
+              <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Código da Sala</span>
+              <h1 className="text-2xl font-black text-primary tracking-widest font-mono">
+                {roomId}
+              </h1>
             </div>
-            <CopyRoomButton roomId={roomId} size="sm" variant="secondary" showTextOnMobile />
-          </div>
+            <div className="flex items-center gap-2">
+              <CopyRoomButton roomId={roomId} size="sm" showTextOnMobile={false} />
+              <Button variant="ghost" size="sm" onClick={() => router.push("/")} className="text-xs text-muted-foreground">
+                Sair
+              </Button>
+            </div>
+          </header>
 
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-semibold">Jogadores ({playersList.length})</h2>
-            {isCreator && <Button onClick={handleStartGame}>Iniciar Jogo</Button>}
-          </div>
+          <main className="w-full flex-1 flex flex-col justify-between py-4 space-y-4">
+            <div className="p-3 bg-muted/60 border rounded-xl flex items-center justify-between gap-2">
+              <span className="text-xs text-muted-foreground">Convide amigos para jogar:</span>
+              <CopyRoomButton roomId={roomId} size="sm" variant="secondary" />
+            </div>
 
-          <ul className="space-y-2">
-            {playersList.map((p) => (
-              <li key={p.id} className="flex items-center justify-between p-3 bg-muted rounded-md">
-                <div className="flex items-center gap-2">
-                  <span className="font-medium">{p.name}</span>
-                  {p.id === myId && (
-                    <span className="text-xs bg-primary/20 text-primary px-2 py-0.5 rounded-full">
-                      Você
-                    </span>
-                  )}
-                  {p.isCreator && (
-                    <span className="text-xs bg-amber-500/20 text-amber-600 px-2 py-0.5 rounded-full">
-                      Líder
-                    </span>
-                  )}
+            <div className="flex-1 overflow-y-auto space-y-3">
+              <div className="flex items-center justify-between">
+                <h2 className="text-sm font-bold uppercase tracking-wider text-muted-foreground">
+                  Jogadores ({playersList.length})
+                </h2>
+                <span className="text-[11px] text-muted-foreground">Min. 2 jogadores</span>
+              </div>
+
+              <ul className="space-y-2">
+                {playersList.map((p) => (
+                  <li key={p.id} className="flex items-center justify-between p-3 bg-card border rounded-xl shadow-xs">
+                    <div className="flex items-center gap-2">
+                      <span className="font-bold text-sm">{p.name}</span>
+                      {p.id === myId && (
+                        <span className="text-[10px] bg-primary/20 text-primary px-2 py-0.5 rounded-full font-bold">
+                          Você
+                        </span>
+                      )}
+                      {p.isCreator && (
+                        <span className="text-[10px] bg-amber-500/20 text-amber-600 dark:text-amber-400 px-2 py-0.5 rounded-full font-bold">
+                          Líder
+                        </span>
+                      )}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            <div className="pt-3 border-t">
+              {isCreator ? (
+                <Button 
+                  onClick={handleStartGame} 
+                  disabled={playersList.length < 2}
+                  className="w-full font-black h-12 text-base shadow-lg cursor-pointer"
+                >
+                  {playersList.length < 2 ? "Aguardando mais jogadores..." : "Iniciar Jogo"}
+                </Button>
+              ) : (
+                <div className="text-center py-2 text-xs text-muted-foreground animate-pulse font-medium">
+                  Aguardando o líder iniciar a partida...
                 </div>
-              </li>
-            ))}
-          </ul>
-        </main>
+              )}
+            </div>
+          </main>
+        </div>
       </div>
     );
   }
@@ -267,78 +296,80 @@ function RoomContent() {
     }
 
     return (
-      <div className="flex flex-col items-center justify-center min-h-[100dvh] bg-zinc-50 dark:bg-black p-4 font-sans">
-        <div className="bg-card text-card-foreground border p-8 rounded-3xl max-w-md w-full shadow-2xl flex flex-col items-center gap-4 animate-in zoom-in duration-500">
-          <span className="text-6xl mb-2">{isMe ? "🎉" : "🏆"}</span>
-          <h2 className="text-3xl font-black text-primary uppercase tracking-wider text-center">
-            Fim de Jogo!
-          </h2>
+      <div className="min-h-screen w-full bg-zinc-950 bg-gradient-to-b from-zinc-900/60 via-zinc-950 to-black flex justify-center items-center overflow-x-hidden font-sans">
+        <div className="w-full max-w-[440px] sm:max-w-[480px] min-h-[100dvh] bg-background shadow-2xl relative flex flex-col justify-center items-center p-6 border-x border-border/40">
+          <div className="bg-card text-card-foreground border p-6 sm:p-8 rounded-3xl w-full shadow-lg flex flex-col items-center gap-4 animate-in zoom-in duration-500">
+            <span className="text-5xl mb-1">{isMe ? "🎉" : "🏆"}</span>
+            <h2 className="text-2xl font-black text-primary uppercase tracking-wider text-center">
+              Fim de Jogo!
+            </h2>
 
-          <div className="my-2 py-4 border-y border-border w-full text-center">
-            <p className="text-sm text-muted-foreground uppercase tracking-widest mb-1">
-              O Vencedor é
-            </p>
-            <p className="text-4xl font-black text-foreground truncate px-2">{winner?.name}</p>
-          </div>
-
-          {catsArray.length > 0 && (
-            <div className="w-full">
-              <p className="text-xs font-bold text-muted-foreground uppercase text-center mb-2">
-                Categorias Reunidas
+            <div className="my-1 py-3 border-y border-border w-full text-center">
+              <p className="text-xs text-muted-foreground uppercase tracking-widest mb-1">
+                O Vencedor é
               </p>
-              <div className="flex flex-wrap gap-2 justify-center">
-                {catsArray.map((cat, i) => (
-                  <span
-                    key={i}
-                    className={`text-[10px] font-bold px-2 py-1 rounded-full ${
-                      cat === "CARTA CORINGA"
-                        ? "bg-gradient-to-r from-red-500 via-green-500 to-blue-500 text-white"
-                        : "bg-primary/10 text-primary"
-                    }`}
-                  >
-                    {cat}
-                  </span>
-                ))}
-              </div>
+              <p className="text-3xl font-black text-foreground truncate px-2">{winner?.name}</p>
             </div>
-          )}
 
-          {isMe && (
-            <p className="text-sm text-green-700 font-bold bg-green-100 px-4 py-2 mt-2 rounded-full uppercase tracking-wider animate-pulse text-center">
-              Você venceu o Combo!
-            </p>
-          )}
+            {catsArray.length > 0 && (
+              <div className="w-full">
+                <p className="text-[11px] font-bold text-muted-foreground uppercase text-center mb-2">
+                  Categorias Reunidas
+                </p>
+                <div className="flex flex-wrap gap-1.5 justify-center">
+                  {catsArray.map((cat, i) => (
+                    <span
+                      key={i}
+                      className={`text-[10px] font-bold px-2 py-1 rounded-full ${
+                        cat === "CARTA CORINGA"
+                          ? "bg-gradient-to-r from-red-500 via-green-500 to-blue-500 text-white"
+                          : "bg-primary/10 text-primary"
+                      }`}
+                    >
+                      {cat}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
 
-          <div className="flex flex-col gap-2.5 w-full mt-6">
-            <Button
-              onClick={() => setIsStatsOpen(true)}
-              variant="outline"
-              size="lg"
-              className="w-full flex items-center justify-center gap-2 font-bold border-2"
-            >
-              <BarChart3 className="w-5 h-5 text-primary" />
-              Ver Estatísticas da Partida
-            </Button>
+            {isMe && (
+              <p className="text-xs text-green-700 font-bold bg-green-100 px-3 py-1.5 mt-1 rounded-full uppercase tracking-wider animate-pulse text-center">
+                Você venceu o Combo!
+              </p>
+            )}
 
-            <Button
-              onClick={() => {
-                setIsStatsOpen(false);
-                socket.send(JSON.stringify({ type: "return_to_lobby" }));
-              }}
-              className="w-full font-bold"
-              size="lg"
-            >
-              Voltar ao Lobby
-            </Button>
+            <div className="flex flex-col gap-2.5 w-full mt-4">
+              <Button
+                onClick={() => setIsStatsOpen(true)}
+                variant="outline"
+                size="lg"
+                className="w-full flex items-center justify-center gap-2 font-bold border-2 h-11"
+              >
+                <BarChart3 className="w-4 h-4 text-primary" />
+                Ver Estatísticas da Partida
+              </Button>
+
+              <Button
+                onClick={() => {
+                  setIsStatsOpen(false);
+                  socket.send(JSON.stringify({ type: "return_to_lobby" }));
+                }}
+                className="w-full font-bold h-11"
+                size="lg"
+              >
+                Voltar ao Lobby
+              </Button>
+            </div>
+
+            <MatchStatsModal
+              isOpen={isStatsOpen}
+              onClose={() => setIsStatsOpen(false)}
+              stats={gameState.stats}
+              winnerId={gameState.winnerId}
+              players={gameState.players}
+            />
           </div>
-
-          <MatchStatsModal
-            isOpen={isStatsOpen}
-            onClose={() => setIsStatsOpen(false)}
-            stats={gameState.stats}
-            winnerId={gameState.winnerId}
-            players={gameState.players}
-          />
         </div>
       </div>
     );
