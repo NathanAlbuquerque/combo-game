@@ -8,10 +8,10 @@ import { Play, ArrowLeft, X, Lock } from "lucide-react";
 interface CardPreviewModalProps {
   card: CardType | null;
   isOpen: boolean;
-  canPlay: boolean;
+  canPlay?: boolean;
   canPlayReason?: string;
   onClose: () => void;
-  onConfirmPlay: (card: CardType) => void;
+  onConfirmPlay?: (card: CardType) => void;
 }
 
 const TARGET_EFFECTS = [
@@ -28,7 +28,7 @@ const TARGET_EFFECTS = [
 export function CardPreviewModal({
   card,
   isOpen,
-  canPlay,
+  canPlay = false,
   canPlayReason,
   onClose,
   onConfirmPlay,
@@ -77,41 +77,54 @@ export function CardPreviewModal({
         </div>
 
         {/* Botões de Ação */}
-        <div className="w-full mt-3 sm:mt-4 flex items-center justify-center gap-2 sm:gap-3">
-          {/* Botão Secundário: Voltar */}
-          <button
-            type="button"
-            onClick={onClose}
-            className="flex items-center justify-center gap-1.5 px-3.5 sm:px-4 py-2.5 sm:py-3 rounded-xl font-bold text-xs sm:text-sm text-zinc-300 hover:text-white bg-zinc-900/90 hover:bg-zinc-800 border border-zinc-700/80 active:scale-95 transition-all cursor-pointer shadow-md"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            <span>Voltar</span>
-          </button>
+        {onConfirmPlay ? (
+          <div className="w-full mt-3 sm:mt-4 flex items-center justify-center gap-2 sm:gap-3">
+            {/* Botão Secundário: Voltar */}
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex items-center justify-center gap-1.5 px-3.5 sm:px-4 py-2.5 sm:py-3 rounded-xl font-bold text-xs sm:text-sm text-zinc-300 hover:text-white bg-zinc-900/90 hover:bg-zinc-800 border border-zinc-700/80 active:scale-95 transition-all cursor-pointer shadow-md"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              <span>Voltar</span>
+            </button>
 
-          {/* Botão Principal: Jogar Carta */}
-          {canPlay ? (
+            {/* Botão Principal: Jogar Carta */}
+            {canPlay ? (
+              <button
+                type="button"
+                onClick={() => onConfirmPlay(card)}
+                className="flex-1 flex items-center justify-center gap-2 px-4 sm:px-5 py-2.5 sm:py-3 rounded-xl font-black text-xs sm:text-sm text-white bg-emerald-600 hover:bg-emerald-500 active:scale-95 shadow-lg shadow-emerald-950/50 transition-all cursor-pointer border border-emerald-400/40"
+              >
+                <Play className="w-4 h-4 fill-current shrink-0" />
+                <span className="truncate">
+                  {isTargetEffect ? "Jogar (Escolher Alvo)" : "Jogar Carta"}
+                </span>
+              </button>
+            ) : (
+              <button
+                type="button"
+                disabled
+                className="flex-1 flex items-center justify-center gap-1.5 px-3.5 sm:px-4 py-2.5 sm:py-3 rounded-xl font-bold text-[11px] sm:text-xs text-zinc-400 bg-zinc-800/80 border border-zinc-700/50 cursor-not-allowed opacity-75 shadow-sm"
+                title={canPlayReason || "Não é seu turno"}
+              >
+                <Lock className="w-3.5 h-3.5 text-zinc-500 shrink-0" />
+                <span className="truncate">{canPlayReason || "Não é seu turno"}</span>
+              </button>
+            )}
+          </div>
+        ) : (
+          <div className="w-full mt-3 sm:mt-4 flex items-center justify-center">
             <button
               type="button"
-              onClick={() => onConfirmPlay(card)}
-              className="flex-1 flex items-center justify-center gap-2 px-4 sm:px-5 py-2.5 sm:py-3 rounded-xl font-black text-xs sm:text-sm text-white bg-emerald-600 hover:bg-emerald-500 active:scale-95 shadow-lg shadow-emerald-950/50 transition-all cursor-pointer border border-emerald-400/40"
+              onClick={onClose}
+              className="w-full flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl font-bold text-sm text-zinc-200 hover:text-white bg-zinc-900/90 hover:bg-zinc-800 border border-zinc-700/80 active:scale-95 transition-all cursor-pointer shadow-md"
             >
-              <Play className="w-4 h-4 fill-current shrink-0" />
-              <span className="truncate">
-                {isTargetEffect ? "Jogar (Escolher Alvo)" : "Jogar Carta"}
-              </span>
+              <ArrowLeft className="w-4 h-4" />
+              <span>Fechar</span>
             </button>
-          ) : (
-            <button
-              type="button"
-              disabled
-              className="flex-1 flex items-center justify-center gap-1.5 px-3.5 sm:px-4 py-2.5 sm:py-3 rounded-xl font-bold text-[11px] sm:text-xs text-zinc-400 bg-zinc-800/80 border border-zinc-700/50 cursor-not-allowed opacity-75 shadow-sm"
-              title={canPlayReason || "Não é seu turno"}
-            >
-              <Lock className="w-3.5 h-3.5 text-zinc-500 shrink-0" />
-              <span className="truncate">{canPlayReason || "Não é seu turno"}</span>
-            </button>
-          )}
-        </div>
+          </div>
+        )}
       </div>
     </div>
   );

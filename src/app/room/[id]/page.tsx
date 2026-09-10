@@ -38,6 +38,21 @@ function RoomContent() {
   const [toastMsg, setToastMsg] = useState<string | null>(null);
   const [isStatsOpen, setIsStatsOpen] = useState(false);
   const [stablePlayerId] = useState(() => getOrCreatePlayerId(roomId));
+  const [currentTime, setCurrentTime] = useState(() => Date.now());
+
+  const autoStartAt = gameState?.status === "lobby" ? gameState.autoStartAt : undefined;
+
+  useEffect(() => {
+    if (!autoStartAt) return;
+    const interval = setInterval(() => {
+      setCurrentTime(Date.now());
+    }, 500);
+    return () => clearInterval(interval);
+  }, [autoStartAt]);
+
+  const autoStartSeconds = autoStartAt
+    ? Math.max(0, Math.ceil((autoStartAt - currentTime) / 1000))
+    : null;
 
   const playerNameRef = useRef(playerName);
   useEffect(() => {
@@ -227,6 +242,12 @@ function RoomContent() {
               <span className="text-xs text-muted-foreground">Convide amigos para jogar:</span>
               <CopyRoomButton roomId={roomId} size="sm" variant="secondary" />
             </div>
+
+            {autoStartSeconds !== null && (
+              <div className="p-3 bg-amber-500/15 border border-amber-500/30 rounded-xl flex items-center justify-center gap-2 text-amber-600 dark:text-amber-400 font-bold text-xs animate-pulse text-center">
+                <span>⏳ Partida iniciando automaticamente em {autoStartSeconds}s... Preparem-se!</span>
+              </div>
+            )}
 
             <div className="flex-1 overflow-y-auto space-y-3">
               <div className="flex items-center justify-between">

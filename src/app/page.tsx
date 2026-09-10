@@ -2,7 +2,9 @@
 
 import { useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { BookOpen } from "lucide-react";
 
 function HomeContent() {
   const router = useRouter();
@@ -109,6 +111,18 @@ function HomeContent() {
                 <Button onClick={handleJoinRoom} variant="secondary" className="font-bold h-11 px-5">
                   Entrar
                 </Button>
+              </div>
+
+              <div className="pt-2 border-t">
+                <Link href="/cartas" className="w-full block">
+                  <Button
+                    variant="outline"
+                    className="w-full font-bold h-11 flex items-center justify-center gap-2 border-dashed hover:bg-muted/80 text-foreground cursor-pointer"
+                  >
+                    <BookOpen className="w-4 h-4 text-primary" />
+                    <span>📖 Ver Todas as Cartas</span>
+                  </Button>
+                </Link>
               </div>
             </div>
           </div>

@@ -1,4 +1,4 @@
-import { ObjectCategory } from "../types/game";
+import { Card, ObjectCategory } from "../types/game";
 
 export interface ObjectCardData {
   category: ObjectCategory;
@@ -337,3 +337,38 @@ export const EFFECTS_CARDS_DATA: EffectCardData[] = [
     tip: 'Entregar um texto inteiro feito por IA como se fosse seu é desonesto e prejudica seu aprendizado.'
   },
 ];
+
+export const ALL_GALLERY_CARDS: Card[] = [
+  ...OBJECT_CARDS_DATA.map((item, index) => ({
+    id: `gallery_obj_${index + 1}`,
+    type: 'object' as const,
+    category: item.category,
+    name: item.name,
+    description: item.description,
+    visualDetail: item.visualDetail,
+    imageUrl: item.imageUrl,
+  })),
+  {
+    id: 'gallery_jkr_1',
+    type: 'joker' as const,
+    name: 'Coringa',
+    description: 'Pode representar qualquer categoria na área de objetos.',
+    imageUrl: '/images/objects/coringa.jpg',
+  },
+  {
+    id: 'gallery_jkr_2',
+    type: 'joker' as const,
+    name: 'Coringa',
+    description: 'Pode representar qualquer categoria na área de objetos.',
+    imageUrl: '/images/objects/coringa.jpg',
+  },
+  ...EFFECTS_CARDS_DATA.map((conf, index) => ({
+    id: `gallery_eff_${index + 1}`,
+    type: 'effect' as const,
+    name: conf.name,
+    description: conf.desc,
+    tip: conf.tip,
+    fact: conf.fact,
+  })),
+];
+

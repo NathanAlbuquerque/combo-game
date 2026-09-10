@@ -130,6 +130,92 @@ export default class MainServer implements Party.Server {
     this.state.stats.playerStats[playerId].effectsPlayed++;
   }
 
+  private autoStartTimeout: ReturnType<typeof setTimeout> | null = null;
+
+  private clearAutoStartTimer() {
+    if (this.autoStartTimeout) {
+      clearTimeout(this.autoStartTimeout);
+      this.autoStartTimeout = null;
+    }
+    this.state.autoStartAt = undefined;
+  }
+
+  private handleAutoStart() {
+    this.autoStartTimeout = null;
+    this.state.autoStartAt = undefined;
+    if (this.state.status === "lobby" && Object.keys(this.state.players).length >= 2) {
+      this.addLog("⏳ Tempo de lobby finalizado! A partida iniciou automaticamente.");
+      this.startGame();
+    }
+  }
+
+  private checkAutoStartTimer() {
+    if (this.state.status !== "lobby") {
+      this.clearAutoStartTimer();
+      return;
+    }
+    const count = Object.keys(this.state.players).length;
+    if (count >= 2) {
+      if (!this.autoStartTimeout) {
+        this.state.autoStartAt = Date.now() + 60000;
+        this.autoStartTimeout = setTimeout(() => {
+          this.handleAutoStart();
+        }, 60000);
+      }
+    } else {
+      this.clearAutoStartTimer();
+    }
+  }
+
+  private startGame() {
+    this.clearAutoStartTimer();
+    if (this.state.status !== "lobby") return;
+    const playerIds = Object.keys(this.state.players);
+    if (playerIds.length < 2) return;
+
+    const shuffledDeck = generateDeck();
+
+    for (const pid of playerIds) {
+      const player = this.state.players[pid];
+      player.hand = shuffledDeck.splice(-3, 3);
+      player.isSpectating = false;
+    }
+
+    this.state.deck = shuffledDeck;
+    this.state.status = "playing";
+    this.state.currentTurnPlayerId = this.state.creatorId || playerIds[0];
+    this.state.turnOrder = playerIds;
+    this.state.actionLog = [];
+    this.state.pendingAction = null;
+    this.state.extraPlayPlayerId = null;
+    this.state.revealedHandsUntilTurnOfPlayerId = null;
+    this.state.revealedPlayerIds = [];
+    this.state.revealedPlayerUntilTurn = {};
+
+    const initialPlayerStats: MatchStats['playerStats'] = {};
+    for (const pid of playerIds) {
+      initialPlayerStats[pid] = {
+        playerName: this.state.players[pid]?.name || "Jogador",
+        cardsDrawn: 0,
+        effectsPlayed: 0,
+        objectsPlayed: 0,
+        eliminated: false,
+      };
+    }
+
+    this.state.stats = {
+      startedAt: Date.now(),
+      totalTurns: 1,
+      totalCardsDrawn: 0,
+      totalEffectsPlayed: 0,
+      totalObjectsPlayed: 0,
+      playerStats: initialPlayerStats,
+    };
+
+    this.addLog("A partida começou!");
+    this.broadcastSync();
+  }
+
   private connectionToPlayerId: Map<string, string> = new Map();
   private playerToConnectionId: Map<string, string> = new Map();
 
@@ -176,6 +262,7 @@ export default class MainServer implements Party.Server {
           this.state.players[this.state.creatorId].isCreator = true;
         }
       }
+      this.checkAutoStartTimer();
       this.broadcastSync();
     }
   }
@@ -448,6 +535,7 @@ export default class MainServer implements Party.Server {
           this.addLog(`👁️ ${trimmedName} entrou em modo espectador.`);
         }
 
+        this.checkAutoStartTimer();
         this.broadcastSync();
         return;
       }
@@ -465,51 +553,12 @@ export default class MainServer implements Party.Server {
           return;
         }
 
-        const playerIds = Object.keys(this.state.players);
-        if (playerIds.length === 0) return;
-
-        const shuffledDeck = generateDeck();
-
-        for (const pid of playerIds) {
-          const player = this.state.players[pid];
-          player.hand = shuffledDeck.splice(-3, 3);
-          player.isSpectating = false;
+        if (Object.keys(this.state.players).length < 2) {
+          sender.send(JSON.stringify({ type: "error", message: "A partida precisa de pelo menos 2 jogadores para iniciar." }));
+          return;
         }
 
-        this.state.deck = shuffledDeck;
-        this.state.status = "playing";
-        this.state.currentTurnPlayerId = this.state.creatorId || playerIds[0];
-        this.state.turnOrder = playerIds;
-        this.state.actionLog = [];
-        this.state.pendingAction = null;
-        this.state.extraPlayPlayerId = null;
-        this.state.revealedHandsUntilTurnOfPlayerId = null;
-        this.state.revealedPlayerIds = [];
-        this.state.revealedPlayerUntilTurn = {};
-
-        const initialPlayerStats: MatchStats['playerStats'] = {};
-        for (const pid of playerIds) {
-          initialPlayerStats[pid] = {
-            playerName: this.state.players[pid]?.name || "Jogador",
-            cardsDrawn: 0,
-            effectsPlayed: 0,
-            objectsPlayed: 0,
-            eliminated: false,
-          };
-        }
-
-        this.state.stats = {
-          startedAt: Date.now(),
-          totalTurns: 1,
-          totalCardsDrawn: 0,
-          totalEffectsPlayed: 0,
-          totalObjectsPlayed: 0,
-          playerStats: initialPlayerStats,
-        };
-
-        this.addLog("A partida começou!");
-
-        this.broadcastSync();
+        this.startGame();
         return;
       }
 
@@ -1066,6 +1115,7 @@ export default class MainServer implements Party.Server {
           player.isSpectating = false;
         }
 
+        this.checkAutoStartTimer();
         this.syncState();
         return;
       }

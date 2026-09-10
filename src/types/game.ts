@@ -66,6 +66,7 @@ export interface GameState {
   currentTurnPlayerId: string | null;
   winnerId: string | null;
   turnOrder?: string[]; // Ordem sequencial oficial da rodada
+  autoStartAt?: number; // Timestamp de início automático no lobby (60s)
   
   actionLog: string[]; // Histórico de eventos
   pendingAction: PendingAction | null; // Interrupção do fluxo de turno
