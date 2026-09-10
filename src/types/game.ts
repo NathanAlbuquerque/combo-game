@@ -31,6 +31,7 @@ export interface Player {
   skipNextTurn?: boolean; // Controle de bloqueio
   isBlocked?: boolean; // Controle de bloqueio (Tomou Block!)
   isEliminated?: boolean; // Jogador sem cartas perde
+  isSpectating?: boolean; // Modo espectador/espera
 }
 
 export type PendingAction = {
@@ -64,6 +65,7 @@ export interface GameState {
   discard: Card[];
   currentTurnPlayerId: string | null;
   winnerId: string | null;
+  turnOrder?: string[]; // Ordem sequencial oficial da rodada
   
   actionLog: string[]; // Histórico de eventos
   pendingAction: PendingAction | null; // Interrupção do fluxo de turno

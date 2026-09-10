@@ -5,8 +5,9 @@ import { Card } from "./Card";
 import { CardPreviewModal } from "./CardPreviewModal";
 import { CopyRoomButton } from "./CopyRoomButton";
 import { Button } from "@/components/ui/button";
-import { HelpCircle, X, Eye, UserCircle2, Sparkles, AlertTriangle, FileText } from "lucide-react";
+import { HelpCircle, X, Eye, UserCircle2, Sparkles, AlertTriangle, FileText, Users } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
+import { RoomPlayersDrawer } from "./RoomPlayersDrawer";
 
 function playTurnNotificationSound() {
   if (typeof window === "undefined") return;
@@ -92,12 +93,19 @@ export function GameBoard({
   const [tradingMode, setTradingMode] = useState(false);
   const [targetingCardId, setTargetingCardId] = useState<string | null>(null);
   const [isHelpOpen, setIsHelpOpen] = useState(false);
+  const [isPlayersDrawerOpen, setIsPlayersDrawerOpen] = useState(false);
   const [inspectingPlayerId, setInspectingPlayerId] = useState<string | null>(null);
   const [previewCard, setPreviewCard] = useState<CardType | null>(null);
 
   const me = state.players[myId];
+  const isSpectator = Boolean(me?.isSpectating);
   const inspectingPlayer = inspectingPlayerId ? state.players[inspectingPlayerId] : null;
-  const opponents = Object.values(state.players).filter((p) => p.id !== myId);
+
+  // Jogadores ativos da partida (exclui espectadores para não poluir o carrossel de oponentes)
+  const activePlayers = Object.values(state.players).filter((p) => !p.isSpectating);
+  const opponents = isSpectator
+    ? activePlayers
+    : activePlayers.filter((p) => p.id !== myId);
   
   const isGlobalHandsRevealed = Boolean(state.revealedHandsUntilTurnOfPlayerId);
   const isAnyHandRevealed = isGlobalHandsRevealed || Boolean(state.revealedPlayerIds && state.revealedPlayerIds.length > 0);
@@ -108,8 +116,8 @@ export function GameBoard({
   const isMyExtraPlay = state.extraPlayPlayerId === myId;
   
   // O turno é "ativo" se for minha vez normal e NÃO houver pendingAction rolando (que pausa o jogo)
-  const isActiveTurn = isMyTurn && !state.pendingAction;
-  const isMyTurnActive = Boolean((isActiveTurn || isMyExtraPlay) && !me?.isEliminated && !state.pendingAction);
+  const isActiveTurn = isMyTurn && !state.pendingAction && !isSpectator;
+  const isMyTurnActive = Boolean((isActiveTurn || isMyExtraPlay) && !me?.isEliminated && !isSpectator && !state.pendingAction);
 
   // Efeito sonoro nativo sintetizado (Web Audio) e feedback tátil (Vibration API) na troca de turno
   const wasTurnActiveRef = useRef(false);
@@ -221,6 +229,21 @@ export function GameBoard({
     <div className="min-h-screen w-full bg-zinc-950 bg-gradient-to-b from-zinc-900/60 via-zinc-950 to-black flex justify-center items-center overflow-x-hidden font-sans">
       <div className="w-full max-w-[440px] sm:max-w-[480px] h-[100dvh] max-h-[100dvh] bg-background shadow-2xl relative flex flex-col justify-between overflow-hidden border-x border-border/40 select-none">
         
+        {/* Banner Flutuante de Modo Espectador */}
+        {isSpectator && (
+          <div className="absolute top-2 left-1/2 -translate-x-1/2 z-40 w-[92%] max-w-[400px] bg-amber-500 text-amber-950 font-black text-xs px-3.5 py-2 rounded-2xl shadow-xl border border-amber-400/90 backdrop-blur-md flex items-center justify-between gap-2 animate-in slide-in-from-top-3 duration-300">
+            <div className="flex items-center gap-2 truncate">
+              <span className="text-base shrink-0">👁️</span>
+              <span className="truncate">
+                Partida em andamento • Você entrará na próxima rodada!
+              </span>
+            </div>
+            <span className="text-[10px] bg-amber-600/30 px-2 py-0.5 rounded-full font-bold uppercase tracking-wider shrink-0">
+              Espectador
+            </span>
+          </div>
+        )}
+
         {/* AREA 1: Oponentes (Topo - Carrossel Flexível com Sinalizadores de Rolagem) */}
         <div className="relative w-full border-b bg-card/40 backdrop-blur-sm shadow-xs shrink-0">
           {/* Sombras sutis nas bordas para indicar rolagem horizontal quando houver múltiplos oponentes */}
@@ -235,7 +258,9 @@ export function GameBoard({
             isAnyHandRevealed ? "min-h-[255px] h-auto" : "min-h-[170px] h-auto"
           }`}>
             {opponents.length === 0 ? (
-              <div className="w-full text-center text-xs text-muted-foreground py-4">Esperando oponentes...</div>
+              <div className="w-full text-center text-xs text-muted-foreground py-4">
+                {isSpectator ? "Aguardando jogadores entrarem na partida..." : "Esperando oponentes..."}
+              </div>
             ) : (
               opponents.map(opp => {
                 const isOppTurn = state.currentTurnPlayerId === opp.id;
@@ -244,10 +269,10 @@ export function GameBoard({
                 let actionLabel = "";
                 let canClick = false;
                 
-                if (targetingCardId && isActiveTurn && !opp.isEliminated) {
+                if (targetingCardId && isActiveTurn && !opp.isEliminated && !isSpectator) {
                   actionLabel = "Usar Efeito";
                   canClick = true;
-                } else if (tradingMode && isActiveTurn && opp.hand.length > 0 && me.hand.length > 0 && !opp.isEliminated) {
+                } else if (tradingMode && isActiveTurn && opp.hand.length > 0 && me.hand.length > 0 && !opp.isEliminated && !isSpectator) {
                   actionLabel = "Trocar";
                   canClick = true;
                 }
@@ -274,22 +299,42 @@ export function GameBoard({
           {/* Topo da Mesa Central: Info do Turno / Status do Jogo / Ações Rápidas */}
           <div className="w-full px-3 pt-2 pb-1 flex flex-col gap-1.5 shrink-0 z-10 border-b border-border/30 bg-card/20 backdrop-blur-xs">
             <div className="flex items-center justify-between gap-2">
-              {roomId && (
-                <CopyRoomButton 
-                  roomId={roomId} 
-                  variant="outline" 
-                  size="sm"
-                  className="bg-background/90 backdrop-blur shadow-xs text-xs h-7 px-2.5 shrink-0" 
-                />
-              )}
+              <div className="flex items-center gap-1.5 shrink-0">
+                {roomId && (
+                  <CopyRoomButton 
+                    roomId={roomId} 
+                    variant="outline" 
+                    size="sm"
+                    className="bg-background/90 backdrop-blur shadow-xs text-xs h-7 px-2 shrink-0" 
+                  />
+                )}
+                <button 
+                  onClick={() => setIsPlayersDrawerOpen(true)}
+                  className="shrink-0 bg-card border rounded-full shadow-xs hover:bg-muted transition-colors text-muted-foreground hover:text-foreground h-7 w-7 flex items-center justify-center relative"
+                  title="Jogadores na sala"
+                  aria-label="Jogadores na sala"
+                >
+                  <Users className="w-3.5 h-3.5" />
+                  <span className="absolute -top-1 -right-1 bg-primary text-primary-foreground text-[8px] font-black w-3.5 h-3.5 rounded-full flex items-center justify-center">
+                    {Object.keys(state.players).length}
+                  </span>
+                </button>
+              </div>
 
               <div className="flex-1 flex justify-center px-1 overflow-hidden">
                 <div className={`px-3 py-1 rounded-full border shadow-xs text-center flex items-center justify-center gap-1.5 max-w-full transition-all duration-300 ${
                   isMyTurnActive
                     ? "bg-primary/15 border-primary/60 shadow-md shadow-primary/25 ring-2 ring-primary/30"
+                    : isSpectator
+                    ? "bg-amber-500/10 border-amber-500/30"
                     : "bg-background/95 backdrop-blur-md"
                 }`}>
-                  {me?.isEliminated ? (
+                  {isSpectator ? (
+                    <span className="text-amber-700 dark:text-amber-400 font-bold text-xs truncate flex items-center gap-1.5">
+                      <span className="inline-block w-2 h-2 rounded-full bg-amber-500 animate-ping" />
+                      <span>Modo Espectador 👁️</span>
+                    </span>
+                  ) : me?.isEliminated ? (
                     <span className="text-muted-foreground font-black text-xs">Você foi eliminado 💀</span>
                   ) : isPendingMyAction ? (
                     <span className="text-destructive font-black animate-pulse text-xs leading-none truncate">
@@ -462,50 +507,66 @@ export function GameBoard({
 
         </div>
 
-        {/* AREA 3: Minha Mão (Base Fixa) */}
+        {/* AREA 3: Minha Mão / Modo Espectador */}
         <div className={`min-h-[165px] max-h-[195px] w-full border-t bg-card flex flex-col shrink-0 shadow-[0_-4px_10px_-2px_rgba(0,0,0,0.08)] z-20 overflow-visible relative transition-all duration-300 ${
           isMyTurnActive
             ? "border-t-2 border-primary/70 shadow-[0_-8px_25px_-5px_rgba(var(--primary),0.3)]"
             : ""
         }`}>
-          {/* Luminous ring pulsante no container da mão quando for a vez do jogador */}
-          {isMyTurnActive && (
-            <div className="pointer-events-none absolute inset-0 ring-4 ring-primary ring-inset animate-pulse z-30" />
-          )}
-
-          {/* Banner de Jogada Extra do Prompt Perfeito */}
-          {isMyExtraPlay && (
-            <div className="w-full bg-primary/15 border-b border-primary/30 text-foreground text-xs font-semibold py-1.5 px-3 flex items-center justify-between gap-2 animate-in fade-in shrink-0">
-              <div className="flex items-center gap-1.5 truncate">
-                <Sparkles className="w-3.5 h-3.5 text-primary shrink-0 animate-pulse" />
-                <span className="text-[11px] truncate">
-                  <strong>Prompt Perfeito:</strong> Baixe o novo objeto!
-                </span>
+          {isSpectator ? (
+            <div className="h-full flex flex-col items-center justify-center p-4 text-center space-y-1.5 select-none bg-muted/10">
+              <div className="w-8 h-8 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-600 dark:text-amber-400 flex items-center justify-center text-base">
+                👁️
               </div>
-              <Button
-                size="sm"
-                variant="outline"
-                className="h-6 px-2 text-[10px] font-bold border-primary text-primary hover:bg-primary hover:text-primary-foreground shrink-0 shadow-xs"
-                onClick={onSkipExtraPlay}
-              >
-                Pular
-              </Button>
+              <h4 className="text-xs font-black uppercase tracking-wider text-foreground">
+                Modo Espectador Ativo
+              </h4>
+              <p className="text-[11px] text-muted-foreground max-w-[320px]">
+                Você está assistindo à rodada em tempo real. Assim que esta partida for concluída e reiniciada pelo líder, você receberá cartas e jogará normalmente!
+              </p>
             </div>
-          )}
+          ) : (
+            <>
+              {/* Luminous ring pulsante no container da mão quando for a vez do jogador */}
+              {isMyTurnActive && (
+                <div className="pointer-events-none absolute inset-0 ring-4 ring-primary ring-inset animate-pulse z-30" />
+              )}
 
-          {isMyHandRevealed && !isMyExtraPlay && (
-            <div className="w-full bg-amber-500/10 border-b border-amber-500/30 text-amber-700 dark:text-amber-400 text-[10.5px] font-semibold py-0.5 px-3 flex items-center justify-center gap-1.5 shrink-0">
-              <Eye className="w-3 h-3 shrink-0" />
-              <span className="truncate">
-                Sua mão está visível para todos os jogadores!
-              </span>
-            </div>
+              {/* Banner de Jogada Extra do Prompt Perfeito */}
+              {isMyExtraPlay && (
+                <div className="w-full bg-primary/15 border-b border-primary/30 text-foreground text-xs font-semibold py-1.5 px-3 flex items-center justify-between gap-2 animate-in fade-in shrink-0">
+                  <div className="flex items-center gap-1.5 truncate">
+                    <Sparkles className="w-3.5 h-3.5 text-primary shrink-0 animate-pulse" />
+                    <span className="text-[11px] truncate">
+                      <strong>Prompt Perfeito:</strong> Baixe o novo objeto!
+                    </span>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-6 px-2 text-[10px] font-bold border-primary text-primary hover:bg-primary hover:text-primary-foreground shrink-0 shadow-xs"
+                    onClick={onSkipExtraPlay}
+                  >
+                    Pular
+                  </Button>
+                </div>
+              )}
+
+              {isMyHandRevealed && !isMyExtraPlay && (
+                <div className="w-full bg-amber-500/10 border-b border-amber-500/30 text-amber-700 dark:text-amber-400 text-[10.5px] font-semibold py-0.5 px-3 flex items-center justify-center gap-1.5 shrink-0">
+                  <Eye className="w-3 h-3 shrink-0" />
+                  <span className="truncate">
+                    Sua mão está visível para todos os jogadores!
+                  </span>
+                </div>
+              )}
+              <PlayerHand 
+                hand={me.hand} 
+                isActiveTurn={isActiveTurn || isMyExtraPlay}
+                onCardClick={handleInspectCard}
+              />
+            </>
           )}
-          <PlayerHand 
-            hand={me.hand} 
-            isActiveTurn={isActiveTurn || isMyExtraPlay}
-            onCardClick={handleInspectCard}
-          />
         </div>
 
       {/* MODAL BLOQUEADOR DE AÇÃO PENDENTE (Phishing / LI E ACEITO!) */}
@@ -709,6 +770,14 @@ export function GameBoard({
         canPlayReason={canPlayReason}
         onClose={() => setPreviewCard(null)}
         onConfirmPlay={handleConfirmPlayFromPreview}
+      />
+
+      {/* GAVETA DE JOGADORES DA SALA */}
+      <RoomPlayersDrawer
+        isOpen={isPlayersDrawerOpen}
+        onClose={() => setIsPlayersDrawerOpen(false)}
+        state={state}
+        myId={myId}
       />
 
       </div>

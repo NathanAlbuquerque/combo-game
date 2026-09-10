@@ -67,6 +67,7 @@ export default class MainServer implements Party.Server {
       discard: [],
       currentTurnPlayerId: null,
       winnerId: null,
+      turnOrder: [],
       actionLog: [],
       pendingAction: null,
       extraPlayPlayerId: null,
@@ -156,9 +157,15 @@ export default class MainServer implements Party.Server {
     this.playerToConnectionId.delete(playerId);
 
     if (this.state.status === "playing") {
-      this.addLog(`O jogador ${this.state.players[playerId]?.name || playerId} desconectou.`);
-      this.reclaimPlayerCards(playerId);
-      this.checkEliminations();
+      const player = this.state.players[playerId];
+      if (player?.isSpectating) {
+        this.addLog(`O espectador ${player.name || playerId} desconectou.`);
+        delete this.state.players[playerId];
+      } else {
+        this.addLog(`O jogador ${player?.name || playerId} desconectou.`);
+        this.reclaimPlayerCards(playerId);
+        this.checkEliminations();
+      }
       this.broadcastSync();
     } else {
       delete this.state.players[playerId];
@@ -175,7 +182,7 @@ export default class MainServer implements Party.Server {
 
   private reclaimPlayerCards(playerId: string) {
     const player = this.state.players[playerId];
-    if (!player || player.isEliminated) return;
+    if (!player || player.isEliminated || player.isSpectating) return;
 
     if (this.state.revealedHandsUntilTurnOfPlayerId === playerId) {
       this.state.revealedHandsUntilTurnOfPlayerId = null;
@@ -248,18 +255,23 @@ export default class MainServer implements Party.Server {
   private passTurn() {
     this.state.extraPlayPlayerId = null;
     if (!this.state.currentTurnPlayerId) return;
-    const playerIds = Object.keys(this.state.players);
-    if (playerIds.length === 0) return;
+    const turnOrder = (this.state.turnOrder && this.state.turnOrder.length > 0)
+      ? this.state.turnOrder
+      : Object.keys(this.state.players).filter(id => !this.state.players[id]?.isSpectating);
+
+    if (turnOrder.length === 0) return;
     
-    let currentIndex = playerIds.indexOf(this.state.currentTurnPlayerId);
+    let currentIndex = turnOrder.indexOf(this.state.currentTurnPlayerId);
+    if (currentIndex === -1) currentIndex = 0;
     
-    for (let i = 0; i < playerIds.length; i++) {
-      currentIndex = (currentIndex + 1) % playerIds.length;
-      const nextId = playerIds[currentIndex];
+    for (let i = 0; i < turnOrder.length; i++) {
+      currentIndex = (currentIndex + 1) % turnOrder.length;
+      const nextId = turnOrder[currentIndex];
       const nextPlayer = this.state.players[nextId];
+      if (!nextPlayer) continue;
       
-      if (nextPlayer.isEliminated) {
-        continue; // Pula os eliminados sumariamente
+      if (nextPlayer.isEliminated || nextPlayer.isSpectating) {
+        continue; // Pula os eliminados e espectadores sumariamente
       }
       
       if (nextPlayer.skipNextTurn || nextPlayer.isBlocked) {
@@ -290,6 +302,8 @@ export default class MainServer implements Party.Server {
     let lastActiveId: string | null = null;
     
     for (const [id, player] of Object.entries(this.state.players)) {
+      if (player.isSpectating) continue; // Espectadores não participam de eliminação
+
       if (!player.isEliminated && player.hand.length === 0) {
         this.addLog(`💀 ${player.name} ficou sem cartas e foi eliminado!`);
         this.reclaimPlayerCards(id);
@@ -326,7 +340,7 @@ export default class MainServer implements Party.Server {
 
   private checkVictory(playerId: string): boolean {
     const p = this.state.players[playerId];
-    if (!p) return false;
+    if (!p || p.isSpectating) return false;
     const uniqueCategories = new Set<string>();
     let jokersCount = 0;
     
@@ -408,13 +422,10 @@ export default class MainServer implements Party.Server {
         }
 
         // 2. Novo jogador querendo entrar na sala
-        if (this.state.status !== "lobby") {
-          sender.send(JSON.stringify({ type: "error", message: "A partida já começou!" }));
-          return;
-        }
+        const isSpectating = this.state.status === "playing" || this.state.status === "finished";
 
         const newPlayerId = rawPlayerId || sender.id;
-        const isCreator = this.state.creatorId === null || Object.keys(this.state.players).length === 0;
+        const isCreator = (this.state.creatorId === null || Object.keys(this.state.players).length === 0) && !isSpectating;
         if (isCreator) {
           this.state.creatorId = newPlayerId;
         }
@@ -430,7 +441,12 @@ export default class MainServer implements Party.Server {
           objectArea: [],
           skipNextTurn: false,
           isEliminated: false,
+          isSpectating,
         };
+
+        if (isSpectating) {
+          this.addLog(`👁️ ${trimmedName} entrou em modo espectador.`);
+        }
 
         this.broadcastSync();
         return;
@@ -457,11 +473,13 @@ export default class MainServer implements Party.Server {
         for (const pid of playerIds) {
           const player = this.state.players[pid];
           player.hand = shuffledDeck.splice(-3, 3);
+          player.isSpectating = false;
         }
 
         this.state.deck = shuffledDeck;
         this.state.status = "playing";
-        this.state.currentTurnPlayerId = this.state.creatorId;
+        this.state.currentTurnPlayerId = this.state.creatorId || playerIds[0];
+        this.state.turnOrder = playerIds;
         this.state.actionLog = [];
         this.state.pendingAction = null;
         this.state.extraPlayPlayerId = null;
@@ -577,6 +595,10 @@ export default class MainServer implements Party.Server {
         }
 
         const me = this.state.players[myPlayerId];
+        if (!me || me.isSpectating) {
+          sender.send(JSON.stringify({ type: "error", message: "Espectadores não realizam jogadas na rodada atual." }));
+          return;
+        }
 
         // Se estiver na jogada extra, não pode comprar nem trocar
         if (this.state.extraPlayPlayerId === me.id && (parsed.type === "draw_card" || parsed.type === "trade_card")) {
@@ -605,8 +627,8 @@ export default class MainServer implements Party.Server {
         // -------------------------
         if (parsed.type === "trade_card") {
           const target = this.state.players[parsed.targetPlayerId];
-          if (!target) {
-            sender.send(JSON.stringify({ type: "error", message: "Jogador alvo não encontrado." }));
+          if (!target || target.isSpectating) {
+            sender.send(JSON.stringify({ type: "error", message: "Jogador alvo não encontrado ou em modo espectador." }));
             return;
           }
           
@@ -710,8 +732,8 @@ export default class MainServer implements Party.Server {
                 sender.send(JSON.stringify({ type: "error", message: "Você precisa escolher outro jogador como alvo válido." }));
                 return;
               }
-              if (targetPlayer.isEliminated) {
-                sender.send(JSON.stringify({ type: "error", message: "O jogador alvo já foi eliminado." }));
+              if (targetPlayer.isEliminated || targetPlayer.isSpectating) {
+                sender.send(JSON.stringify({ type: "error", message: "O jogador alvo não está ativo na partida." }));
                 return;
               }
             }
@@ -1025,6 +1047,7 @@ export default class MainServer implements Party.Server {
         this.state.discard = [];
         this.state.currentTurnPlayerId = null;
         this.state.winnerId = null;
+        this.state.turnOrder = [];
         this.state.actionLog = [];
         this.state.pendingAction = null;
         this.state.extraPlayPlayerId = null;
@@ -1040,6 +1063,7 @@ export default class MainServer implements Party.Server {
           player.skipNextTurn = false;
           player.isBlocked = false;
           player.isEliminated = false;
+          player.isSpectating = false;
         }
 
         this.syncState();
