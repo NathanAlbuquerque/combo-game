@@ -5,6 +5,7 @@ export interface ObjectCardData {
   name: string;
   description: string;
   visualDetail?: string;
+  imageUrl: string;
 }
 
 export const OBJECT_CARDS_DATA: ObjectCardData[] = [
@@ -13,31 +14,36 @@ export const OBJECT_CARDS_DATA: ObjectCardData[] = [
     category: 'SEGURANÇA DIGITAL',
     name: 'Gerenciador de Senhas',
     description: 'Cria e guarda senhas difíceis para você. Usar a mesma senha em tudo facilita invasões!',
-    visualDetail: 'Um cofre digital guardando chaves coloridas.'
+    visualDetail: 'Um cofre digital guardando chaves coloridas.',
+    imageUrl: '/images/objects/gerenciador-de-senhas.jpg'
   },
   {
     category: 'SEGURANÇA DIGITAL',
     name: 'Token 2FA',
     description: 'Adiciona uma segunda camada de segurança. Mesmo que descubram sua senha, precisarão do seu celular.',
-    visualDetail: 'Um celular exibindo um código de 6 dígitos ao lado de uma porta trancada.'
+    visualDetail: 'Um celular exibindo um código de 6 dígitos ao lado de uma porta trancada.',
+    imageUrl: '/images/objects/token-2fa.jpg'
   },
   {
     category: 'SEGURANÇA DIGITAL',
     name: 'Escudo VPN',
     description: 'Criptografa sua conexão. Protege seus dados ao navegar em redes abertas de locais públicos.',
-    visualDetail: 'Um escudo azul protegendo um notebook em uma rede Wi-Fi pública.'
+    visualDetail: 'Um escudo azul protegendo um notebook em uma rede Wi-Fi pública.',
+    imageUrl: '/images/objects/escudo-vpn.jpg'
   },
   {
     category: 'SEGURANÇA DIGITAL',
     name: 'Navegação segura',
     description: 'Indica conexão segura. Nunca digite senhas ou dados bancários em sites sem o cadeado na barra.',
-    visualDetail: 'Barra de navegação do navegador destacando o endereço "https://" e o cadeado verde.'
+    visualDetail: 'Barra de navegação do navegador destacando o endereço "https://" e o cadeado verde.',
+    imageUrl: '/images/objects/navegacao-segura.jpg'
   },
   {
     category: 'SEGURANÇA DIGITAL',
     name: 'Firewall Ativo',
     description: 'Funciona como um porteiro no dispositivo, bloqueando acessos e conexões não autorizadas.',
-    visualDetail: 'Uma barreira digital bloqueando robôs maliciosos fora do computador.'
+    visualDetail: 'Uma barreira digital bloqueando robôs maliciosos fora do computador.',
+    imageUrl: '/images/objects/firewall-ativo.jpg'
   },
 
   // PRIVACIDADE E PROTEÇÃO DE DADOS
@@ -45,31 +51,36 @@ export const OBJECT_CARDS_DATA: ObjectCardData[] = [
     category: 'PRIVACIDADE E PROTEÇÃO DE DADOS',
     name: 'Privacidade de dados',
     description: 'Esconde informações pessoais. Evite expor endereço, telefone ou documentos em perfis públicos.',
-    visualDetail: 'Tarja preta cobrindo campos de endereço e telefone em documento/perfil.'
+    visualDetail: 'Tarja preta cobrindo campos de endereço e telefone em documento/perfil.',
+    imageUrl: '/images/objects/privacidade-de-dados.jpg'
   },
   {
     category: 'PRIVACIDADE E PROTEÇÃO DE DADOS',
     name: 'Controle de localização',
     description: 'Desative a geolocalização ao terminar de usar. Nem todo app precisa saber onde você está.',
-    visualDetail: 'Um mapa digital com o pino de localização travado por um cadeado.'
+    visualDetail: 'Um mapa digital com o pino de localização travado por um cadeado.',
+    imageUrl: '/images/objects/controle-de-localizacao.jpg'
   },
   {
     category: 'PRIVACIDADE E PROTEÇÃO DE DADOS',
     name: 'Painel de Permissões',
     description: 'Revogue acessos desnecessários. Um jogo de cartas não precisa ver sua câmera nem ouvir seu microfone.',
-    visualDetail: 'Uma tela de configurações desligando a câmera e o microfone de um aplicativo.'
+    visualDetail: 'Uma tela de configurações desligando a câmera e o microfone de um aplicativo.',
+    imageUrl: '/images/objects/painel-de-permissoes.jpg'
   },
   {
     category: 'PRIVACIDADE E PROTEÇÃO DE DADOS',
     name: 'Bloqueador de Cookies',
     description: 'Impede que sites rastreiem sua navegação para montar um perfil dos seus hábitos.',
-    visualDetail: 'Um biscoito com lupa de detetive sendo parado por uma placa de "Bloqueado".'
+    visualDetail: 'Um biscoito com lupa de detetive sendo parado por uma placa de "Bloqueado".',
+    imageUrl: '/images/objects/bloqueador-de-cookies.jpg'
   },
   {
     category: 'PRIVACIDADE E PROTEÇÃO DE DADOS',
     name: 'Limpar dados',
     description: 'Seus dados pertencem a você. É seu direito apagar cadastros e históricos de plataformas que não usa mais.',
-    visualDetail: 'Uma lixeira digital triturando contas antigas e registros de dados.'
+    visualDetail: 'Uma lixeira digital triturando contas antigas e registros de dados.',
+    imageUrl: '/images/objects/limpar-dados.jpg'
   },
 
   // INFORMAÇÃO E PENSAMENTO CRÍTICO
@@ -77,31 +88,36 @@ export const OBJECT_CARDS_DATA: ObjectCardData[] = [
     category: 'INFORMAÇÃO E PENSAMENTO CRÍTICO',
     name: 'Verificação de informações',
     description: 'Antes de repassar, investigue! Confira se a notícia foi publicada em portais jornalísticos sérios.',
-    visualDetail: 'Uma lupa examinando um texto impresso e destacando a palavra "Verificado".'
+    visualDetail: 'Uma lupa examinando um texto impresso e destacando a palavra "Verificado".',
+    imageUrl: '/images/objects/verificacao-de-informacoes.jpg'
   },
   {
     category: 'INFORMAÇÃO E PENSAMENTO CRÍTICO',
     name: 'Pensamento crítico',
     description: 'Opinião não é fato. Além de verificar, busque refletir sobre a informação.',
-    visualDetail: 'Um cérebro pesando duas informações em uma balança.'
+    visualDetail: 'Um cérebro pesando duas informações em uma balança.',
+    imageUrl: '/images/objects/pensamento-critico.jpg'
   },
   {
     category: 'INFORMAÇÃO E PENSAMENTO CRÍTICO',
     name: 'Fontes confiáveis',
     description: 'Fontes confiáveis informam autores, datas e referências. Desconfie de correntes sem autoria.',
-    visualDetail: 'Um jornal ou portal de notícias com um selo dourado de checagem.'
+    visualDetail: 'Um jornal ou portal de notícias com um selo dourado de checagem.',
+    imageUrl: '/images/objects/fontes-confiaveis.jpg'
   },
   {
     category: 'INFORMAÇÃO E PENSAMENTO CRÍTICO',
     name: 'Filtro de Fake News',
     description: 'Títulos apelativos tentam gerar cliques pelo medo ou raiva. Leia a matéria antes de reagir.',
-    visualDetail: 'Uma mão segurando uma placa de pare diante de um título exagerado.'
+    visualDetail: 'Uma mão segurando uma placa de pare diante de um título exagerado.',
+    imageUrl: '/images/objects/filtro-de-fake-news.jpg'
   },
   {
     category: 'INFORMAÇÃO E PENSAMENTO CRÍTICO',
     name: 'Divulgação responsável',
     description: 'As informações que você compartilha têm consequências, compartilhe com sabedoria',
-    visualDetail: 'Um ícone de "Compartilhar" passando por um filtro antes de ser publicado.'
+    visualDetail: 'Um ícone de "Compartilhar" passando por um filtro antes de ser publicado.',
+    imageUrl: '/images/objects/divulgacao-responsavel.jpg'
   },
 
   // COMUNICAÇÃO E CIDADANIA DIGITAL
@@ -109,31 +125,36 @@ export const OBJECT_CARDS_DATA: ObjectCardData[] = [
     category: 'COMUNICAÇÃO E CIDADANIA DIGITAL',
     name: 'Respeito aos direitos autorais',
     description: 'Respeite os direitos autorais. Dê os créditos ao criador original e use apenas obras autorizadas.',
-    visualDetail: 'O símbolo de licença aberta sobre uma ilustração ou música.'
+    visualDetail: 'O símbolo de licença aberta sobre uma ilustração ou música.',
+    imageUrl: '/images/objects/respeito-aos-direitos-autorais.jpg'
   },
   {
     category: 'COMUNICAÇÃO E CIDADANIA DIGITAL',
     name: 'Respeito nas interações',
     description: 'Trate as pessoas na internet com o mesmo respeito e empatia que você usa no mundo presencial.',
-    visualDetail: 'Um robô simpático com proteção contra comentários tóxicos.'
+    visualDetail: 'Um robô simpático com proteção contra comentários tóxicos.',
+    imageUrl: '/images/objects/respeito-nas-interacoes.jpg'
   },
   {
     category: 'COMUNICAÇÃO E CIDADANIA DIGITAL',
     name: 'Consentimento alheio',
     description: 'Peça permissão antes de postar fotos ou vídeos de outras pessoas. A privacidade do amigo também importa!',
-    visualDetail: 'Uma mão pedindo permissão antes de postar a foto de um colega.'
+    visualDetail: 'Uma mão pedindo permissão antes de postar a foto de um colega.',
+    imageUrl: '/images/objects/consentimento-alheio.jpg'
   },
   {
     category: 'COMUNICAÇÃO E CIDADANIA DIGITAL',
     name: 'Conversas conscientes',
     description: 'Pense antes de enviar por impulso. O que você envia a alguém pode ser salvo e durar para sempre.',
-    visualDetail: 'Botão "Enviar" com cronômetro de pausa reflexiva.'
+    visualDetail: 'Botão "Enviar" com cronômetro de pausa reflexiva.',
+    imageUrl: '/images/objects/conversas-conscientes.jpg'
   },
   {
     category: 'COMUNICAÇÃO E CIDADANIA DIGITAL',
     name: 'Denúncia justa',
     description: 'Viu ataques, preconceito ou perfis falsos? Não engaje nem compartilhe: use a opção de denunciar.',
-    visualDetail: 'Bandeira de alerta vermelha acionada ao lado de mensagem ofensiva.'
+    visualDetail: 'Bandeira de alerta vermelha acionada ao lado de mensagem ofensiva.',
+    imageUrl: '/images/objects/denuncia-justa.jpg'
   },
 
   // COMPETÊNCIAS E FERRAMENTAS DIGITAIS
@@ -141,31 +162,36 @@ export const OBJECT_CARDS_DATA: ObjectCardData[] = [
     category: 'COMPETÊNCIAS E FERRAMENTAS DIGITAIS',
     name: 'Busca Avançada',
     description: 'Use palavras-chave exatas e aspas para achar respostas diretas sem perder tempo.',
-    visualDetail: 'Barra de pesquisa com filtros e aspas aplicadas.'
+    visualDetail: 'Barra de pesquisa com filtros e aspas aplicadas.',
+    imageUrl: '/images/objects/busca-avancada.jpg'
   },
   {
     category: 'COMPETÊNCIAS E FERRAMENTAS DIGITAIS',
     name: 'Nuvem Organizada',
     description: 'Organize arquivos por nomes e pastas claras. Ter backups na nuvem evita a perda de trabalhos.',
-    visualDetail: 'Nuvem com pastas coloridas e identificadas.'
+    visualDetail: 'Nuvem com pastas coloridas e identificadas.',
+    imageUrl: '/images/objects/nuvem-organizada.jpg'
   },
   {
     category: 'COMPETÊNCIAS E FERRAMENTAS DIGITAIS',
     name: 'Download responsável',
     description: 'Baixe materiais apenas de fontes oficiais. Programas e jogos piratas costumam conter vírus.',
-    visualDetail: 'Laser azul escaneando arquivo recebido da web.'
+    visualDetail: 'Laser azul escaneando arquivo recebido da web.',
+    imageUrl: '/images/objects/download-responsavel.jpg'
   },
   {
     category: 'COMPETÊNCIAS E FERRAMENTAS DIGITAIS',
     name: 'Correio Oficial',
     description: 'O e-mail é um canal sério. Use títulos claros, linguagem adequada e saudações respeitosas.',
-    visualDetail: 'Envelope de e-mail formal selado com carimbo.'
+    visualDetail: 'Envelope de e-mail formal selado com carimbo.',
+    imageUrl: '/images/objects/correio-oficial.jpg'
   },
   {
     category: 'COMPETÊNCIAS E FERRAMENTAS DIGITAIS',
     name: 'Trabalho Colaborativo',
     description: 'Ferramentas em nuvem permitem que várias pessoas editem o mesmo projeto juntas em tempo real.',
-    visualDetail: 'Vários cursores coloridos editando o mesmo documento.'
+    visualDetail: 'Vários cursores coloridos editando o mesmo documento.',
+    imageUrl: '/images/objects/trabalho-colaborativo.jpg'
   },
 
   // INTELIGÊNCIA ARTIFICIAL E USO CRÍTICO
@@ -173,31 +199,36 @@ export const OBJECT_CARDS_DATA: ObjectCardData[] = [
     category: 'INTELIGÊNCIA ARTIFICIAL E USO CRÍTICO',
     name: 'Prompt Estruturado',
     description: 'As IAs não leem mentes. Quanto mais clara, contextualizada e precisa for sua instrução, melhor a resposta.',
-    visualDetail: 'Bloco de notas com instruções claras e contexto.'
+    visualDetail: 'Bloco de notas com instruções claras e contexto.',
+    imageUrl: '/images/objects/prompt-estruturado.jpg'
   },
   {
     category: 'INTELIGÊNCIA ARTIFICIAL E USO CRÍTICO',
     name: 'Terminal Chatbot',
     description: 'O chatbot serve para ajudar na construção de ideias, mas não substitui a reflexão própria.',
-    visualDetail: 'Tela de diálogo conversando com assistente virtual.'
+    visualDetail: 'Tela de diálogo conversando com assistente virtual.',
+    imageUrl: '/images/objects/terminal-chatbot.jpg'
   },
   {
     category: 'INTELIGÊNCIA ARTIFICIAL E USO CRÍTICO',
     name: 'Revisão Humana',
     description: 'IAs podem cometer erros ou inventar fatos (\'alucinações\'). Sempre confira os dados fornecidos.',
-    visualDetail: 'Pessoa com óculos analisando folha impressa por IA.'
+    visualDetail: 'Pessoa com óculos analisando folha impressa por IA.',
+    imageUrl: '/images/objects/revisao-humana.jpg'
   },
   {
     category: 'INTELIGÊNCIA ARTIFICIAL E USO CRÍTICO',
     name: 'IA + Humano',
     description: 'A IA acelera tarefas repetitivas, mas a criatividade, o sentimento e o juízo ético dependem de você.',
-    visualDetail: 'Mão humana e robótica juntas segurando um projeto.'
+    visualDetail: 'Mão humana e robótica juntas segurando um projeto.',
+    imageUrl: '/images/objects/ia-mais-humano.jpg'
   },
   {
     category: 'INTELIGÊNCIA ARTIFICIAL E USO CRÍTICO',
     name: 'Transparência autoral',
     description: 'Seja ético! Sempre informe quando usar textos ou imagens gerados por inteligência artificial.',
-    visualDetail: 'Marca d\'água no canto da imagem sinalizando \'Gerado por IA\'.'
+    visualDetail: 'Marca d\'água no canto da imagem sinalizando \'Gerado por IA\'.',
+    imageUrl: '/images/objects/transparencia-autoral.jpg'
   }
 ];
 

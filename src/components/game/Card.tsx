@@ -1,5 +1,6 @@
 import { Card as CardType } from "@/types/game";
 import { cn } from "@/lib/utils";
+import { OBJECT_CARDS_DATA } from "@/data/cards";
 
 interface CardProps {
   card?: CardType; // se undefined, renderiza o verso
@@ -9,13 +10,20 @@ interface CardProps {
 }
 
 const categoryAssets: Record<string, string> = {
-  "SEGURANÇA DIGITAL": "/Categorias/Segurança.svg",
-  "PRIVACIDADE E PROTEÇÃO DE DADOS": "/Categorias/Privacidade.svg",
-  "INFORMAÇÃO E PENSAMENTO CRÍTICO": "/Categorias/Informação.svg",
-  "COMUNICAÇÃO E CIDADANIA DIGITAL": "/Categorias/Cidadania.svg",
-  "COMPETÊNCIAS E FERRAMENTAS DIGITAIS": "/Categorias/Ferramentas.svg",
-  "INTELIGÊNCIA ARTIFICIAL E USO CRÍTICO": "/Categorias/IA.svg",
+  "SEGURANÇA DIGITAL": "/images/categories/seguranca.svg",
+  "PRIVACIDADE E PROTEÇÃO DE DADOS": "/images/categories/privacidade.svg",
+  "INFORMAÇÃO E PENSAMENTO CRÍTICO": "/images/categories/informacao.svg",
+  "COMUNICAÇÃO E CIDADANIA DIGITAL": "/images/categories/cidadania.svg",
+  "COMPETÊNCIAS E FERRAMENTAS DIGITAIS": "/images/categories/ferramentas.svg",
+  "INTELIGÊNCIA ARTIFICIAL E USO CRÍTICO": "/images/categories/ia.svg",
 };
+
+const objectImageByName = new Map<string, string>();
+OBJECT_CARDS_DATA.forEach((o) => {
+  if (o.imageUrl) {
+    objectImageByName.set(o.name.trim().toLowerCase(), o.imageUrl);
+  }
+});
 
 export const CATEGORY_STYLES: Record<string, { bg: string; text: string; border: string; label: string }> = {
   "SEGURANÇA DIGITAL": {
@@ -88,8 +96,16 @@ export function Card({ card, size = "normal", onClick, selected }: CardProps) {
     card.type === "object" && card.category
       ? categoryAssets[card.category]
       : card.type === "joker"
-      ? "/Categorias/Coringa.svg"
+      ? "/images/categories/coringa.svg"
       : null;
+
+  const illustrationUrl =
+    card.imageUrl ||
+    (card.type === "joker"
+      ? "/images/objects/coringa.jpg"
+      : card.name
+      ? objectImageByName.get(card.name.trim().toLowerCase())
+      : undefined);
 
   const tooltipText = card
     ? [
@@ -221,21 +237,46 @@ export function Card({ card, size = "normal", onClick, selected }: CardProps) {
                 )}
               </div>
 
+              {/* Center: Ilustração central específica do objeto com destaque visual, proporção correta e sem distorção */}
+              {illustrationUrl && (
+                <div
+                  className={cn(
+                    "flex-1 flex items-center justify-center min-h-0 overflow-hidden",
+                    size === "normal" ? "my-1 px-1.5" : "my-0.5 px-1"
+                  )}
+                >
+                  <div
+                    className={cn(
+                      "relative w-full h-full rounded-lg overflow-hidden border border-white/25 shadow-md bg-black/40 flex items-center justify-center",
+                      size === "normal" ? "max-h-[68px] sm:max-h-[78px]" : "max-h-[44px]"
+                    )}
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={encodeURI(illustrationUrl)}
+                      alt={card.name || ""}
+                      draggable={false}
+                      className="w-full h-full object-cover object-center select-none"
+                    />
+                  </div>
+                </div>
+              )}
+
               {/* Bottom: Título do objeto perfeitamente legível */}
               {size === "normal" ? (
-                <div className="p-2 sm:p-2.5 flex flex-col text-center text-white">
-                  <span className="font-extrabold leading-tight text-[11px] sm:text-[12px] text-white drop-shadow-md line-clamp-2">
+                <div className="px-2 pb-2 pt-0.5 flex flex-col text-center text-white shrink-0">
+                  <span className="font-extrabold leading-tight text-[10.5px] sm:text-[11.5px] text-white drop-shadow-md line-clamp-1">
                     {card.name}
                   </span>
                   {card.description && (
-                    <p className="text-[8px] sm:text-[8.5px] text-white/90 leading-snug line-clamp-3 mt-1 pt-1 border-t border-white/20">
+                    <p className="text-[7.5px] sm:text-[8px] text-white/90 leading-snug line-clamp-2 mt-0.5 pt-0.5 border-t border-white/20">
                       {card.description}
                     </p>
                   )}
                 </div>
               ) : (
-                <div className="p-1 pb-1.5 flex flex-col text-center text-white">
-                  <span className="font-black leading-tight text-[8.5px] sm:text-[9.5px] text-white drop-shadow-md line-clamp-2">
+                <div className="px-0.5 pb-1 pt-0.5 flex flex-col text-center text-white shrink-0">
+                  <span className="font-black leading-tight text-[8px] sm:text-[8.5px] text-white drop-shadow-md line-clamp-1">
                     {card.name}
                   </span>
                 </div>
@@ -260,21 +301,46 @@ export function Card({ card, size = "normal", onClick, selected }: CardProps) {
                 </div>
               </div>
 
+              {/* Center: Ilustração do Coringa */}
+              {illustrationUrl && (
+                <div
+                  className={cn(
+                    "flex-1 flex items-center justify-center min-h-0 overflow-hidden",
+                    size === "normal" ? "my-1 px-1.5" : "my-0.5 px-1"
+                  )}
+                >
+                  <div
+                    className={cn(
+                      "relative w-full h-full rounded-lg overflow-hidden border border-amber-300/40 shadow-md bg-black/40 flex items-center justify-center",
+                      size === "normal" ? "max-h-[68px] sm:max-h-[78px]" : "max-h-[44px]"
+                    )}
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={encodeURI(illustrationUrl)}
+                      alt="Coringa"
+                      draggable={false}
+                      className="w-full h-full object-cover object-center select-none"
+                    />
+                  </div>
+                </div>
+              )}
+
               {/* Bottom: Título Coringa */}
               {size === "normal" ? (
-                <div className="p-2 sm:p-2.5 flex flex-col text-center text-white">
-                  <span className="font-extrabold leading-tight text-[13px] sm:text-[14px] text-white drop-shadow-md">
+                <div className="px-2 pb-2 pt-0.5 flex flex-col text-center text-white shrink-0">
+                  <span className="font-extrabold leading-tight text-[12px] sm:text-[13px] text-white drop-shadow-md">
                     {card.name || "Coringa"}
                   </span>
                   {card.description && (
-                    <p className="text-[8px] sm:text-[8.5px] text-white/90 leading-snug line-clamp-3 mt-1 pt-1 border-t border-white/20">
+                    <p className="text-[7.5px] sm:text-[8px] text-white/90 leading-snug line-clamp-2 mt-0.5 pt-0.5 border-t border-white/20">
                       {card.description}
                     </p>
                   )}
                 </div>
               ) : (
-                <div className="p-1 pb-1.5 flex flex-col text-center text-white">
-                  <span className="font-black leading-tight text-[9px] sm:text-[10px] text-white drop-shadow-md">
+                <div className="px-0.5 pb-1 pt-0.5 flex flex-col text-center text-white shrink-0">
+                  <span className="font-black leading-tight text-[8.5px] sm:text-[9.5px] text-white drop-shadow-md">
                     {card.name || "Coringa"}
                   </span>
                 </div>

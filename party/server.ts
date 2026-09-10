@@ -24,6 +24,7 @@ function generateDeck(): Card[] {
       name: item.name,
       description: item.description,
       visualDetail: item.visualDetail,
+      imageUrl: item.imageUrl,
     });
   });
 
@@ -34,6 +35,7 @@ function generateDeck(): Card[] {
       type: 'joker',
       name: `Coringa ${i + 1}`,
       description: 'Pode representar qualquer categoria na área de objetos.',
+      imageUrl: '/images/objects/coringa.jpg',
     });
   }
 
