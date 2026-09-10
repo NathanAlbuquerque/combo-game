@@ -4,7 +4,7 @@ import { OBJECT_CARDS_DATA } from "@/data/cards";
 
 interface CardProps {
   card?: CardType; // se undefined, renderiza o verso
-  size?: "normal" | "small";
+  size?: "normal" | "small" | "large";
   onClick?: () => void;
   selected?: boolean;
 }
@@ -68,13 +68,18 @@ export function Card({ card, size = "normal", onClick, selected }: CardProps) {
   const isBack = !card;
 
   const baseClasses = cn(
-    "relative flex flex-col justify-between rounded-xl transition-all cursor-pointer shadow-md overflow-hidden select-none border",
-    size === "normal"
-      ? "w-28 sm:w-32 aspect-[182/252] text-sm"
-      : "w-[76px] sm:w-[84px] aspect-[182/252] text-[10px]",
-    selected
-      ? "border-primary ring-2 ring-primary ring-offset-2 -translate-y-4 shadow-xl"
-      : "border-border/60 hover:-translate-y-2 hover:shadow-lg hover:border-primary/50"
+    "relative flex flex-col justify-between rounded-xl transition-all select-none border overflow-hidden",
+    size === "large"
+      ? "w-64 sm:w-72 aspect-[182/252] text-sm rounded-2xl shadow-2xl cursor-default"
+      : size === "normal"
+      ? "w-28 sm:w-32 aspect-[182/252] text-sm cursor-pointer shadow-md"
+      : "w-[76px] sm:w-[84px] aspect-[182/252] text-[10px] cursor-pointer shadow-md",
+    size !== "large" && (
+      selected
+        ? "border-primary ring-2 ring-primary ring-offset-2 -translate-y-4 shadow-xl"
+        : "border-border/60 hover:-translate-y-2 hover:shadow-lg hover:border-primary/50"
+    ),
+    size === "large" && "border-white/30 ring-1 ring-white/20"
   );
 
   if (isBack) {
@@ -148,7 +153,51 @@ export function Card({ card, size = "normal", onClick, selected }: CardProps) {
       {/* 3. Conteúdo da Carta (Layout dedicado para Efeitos e Objeto/Coringa) */}
       {card.type === "effect" ? (
         <div className="relative z-10 flex flex-col justify-between h-full w-full">
-          {size === "normal" ? (
+          {size === "large" ? (
+            <>
+              {/* Top: Tag "EFEITO" com destaque */}
+              <div className="pt-3 px-3 flex items-center justify-center shrink-0">
+                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/20 border border-amber-500/40 text-amber-400 font-extrabold tracking-widest text-[10.5px] sm:text-[11.5px] shadow-sm uppercase">
+                  <span className="text-xs sm:text-sm leading-none">⚡</span>
+                  <span>EFEITO</span>
+                </div>
+              </div>
+
+              {/* Centro: Título e Descrição da mecânica sem truncamento */}
+              <div className="flex-1 flex flex-col items-center justify-center px-4 py-2 text-center my-auto w-full">
+                <span className="font-black leading-tight text-[15px] sm:text-[17px] text-white drop-shadow-md mb-2">
+                  {card.name}
+                </span>
+                {card.description && (
+                  <div className="w-full bg-zinc-950/80 rounded-xl p-2.5 sm:p-3 border border-zinc-700/60 shadow-inner">
+                    <p className="text-xs sm:text-[13px] text-zinc-100 leading-relaxed font-medium">
+                      <span className="text-amber-400 font-bold mr-1.5">Efeito:</span>
+                      {card.description}
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {/* Rodapé: Dica ou Fato educativo completo */}
+              {(card.tip || card.fact) && (
+                <div className="px-3.5 pb-3.5 pt-2 text-center border-t border-zinc-800/80 bg-black/50 shrink-0 w-full rounded-b-2xl">
+                  <p className="text-[10px] sm:text-[11px] leading-relaxed text-zinc-200">
+                    {card.tip ? (
+                      <>
+                        <span className="text-amber-400 font-bold mr-1">💡 Dica:</span>
+                        <span>{card.tip}</span>
+                      </>
+                    ) : (
+                      <>
+                        <span className="text-sky-400 font-bold mr-1">💬 Fato:</span>
+                        <span>{card.fact}</span>
+                      </>
+                    )}
+                  </p>
+                </div>
+              )}
+            </>
+          ) : size === "normal" ? (
             <>
               {/* Destaque no topo: Badge / Tag "EFEITO" com ícone de raio ⚡ */}
               <div className="pt-2 px-2 flex items-center justify-center shrink-0">
@@ -214,14 +263,16 @@ export function Card({ card, size = "normal", onClick, selected }: CardProps) {
           {card.type === "object" && (
             <>
               {/* Top: Tag/Badge com a cor oficial da categoria */}
-              <div className="pt-1.5 px-1.5 flex items-center justify-center shrink-0 w-full">
+              <div className={cn("flex items-center justify-center shrink-0 w-full", size === "large" ? "pt-2.5 px-3" : "pt-1.5 px-1.5")}>
                 {card.category && (
                   <div
                     className={cn(
-                      "inline-flex items-center justify-center px-1.5 py-0.5 rounded border font-black uppercase tracking-wider text-center shadow-sm w-full truncate",
-                      size === "normal"
-                        ? "text-[7.5px] sm:text-[8px] leading-tight"
-                        : "text-[6.5px] sm:text-[7px] leading-none"
+                      "inline-flex items-center justify-center rounded border font-black uppercase tracking-wider text-center shadow-sm w-full truncate",
+                      size === "large"
+                        ? "px-2.5 py-1 text-[10px] sm:text-[11px] rounded-lg leading-tight"
+                        : size === "normal"
+                        ? "px-1.5 py-0.5 text-[7.5px] sm:text-[8px] leading-tight"
+                        : "px-1.5 py-0.5 text-[6.5px] sm:text-[7px] leading-none"
                     )}
                     style={{
                       backgroundColor: (card.category && CATEGORY_STYLES[card.category]?.bg) || "#3b82f6",
@@ -230,25 +281,29 @@ export function Card({ card, size = "normal", onClick, selected }: CardProps) {
                     }}
                     title={card.category}
                   >
-                    {size === "normal"
-                      ? card.category
-                      : (card.category && CATEGORY_STYLES[card.category]?.label) || card.category}
+                    {size === "small"
+                      ? (card.category && CATEGORY_STYLES[card.category]?.label) || card.category
+                      : card.category}
                   </div>
                 )}
               </div>
 
-              {/* Center: Ilustração central específica do objeto com destaque visual, proporção correta e sem distorção */}
+              {/* Center: Ilustração central específica do objeto */}
               {illustrationUrl && (
                 <div
                   className={cn(
                     "flex-1 flex items-center justify-center min-h-0 overflow-hidden",
-                    size === "normal" ? "my-1 px-1.5" : "my-0.5 px-1"
+                    size === "large" ? "my-2 px-3" : size === "normal" ? "my-1 px-1.5" : "my-0.5 px-1"
                   )}
                 >
                   <div
                     className={cn(
-                      "relative w-full h-full rounded-lg overflow-hidden border border-white/25 shadow-md bg-black/40 flex items-center justify-center",
-                      size === "normal" ? "max-h-[68px] sm:max-h-[78px]" : "max-h-[44px]"
+                      "relative w-full h-full rounded-lg overflow-hidden border shadow-md bg-black/40 flex items-center justify-center",
+                      size === "large"
+                        ? "max-h-[125px] sm:max-h-[145px] rounded-xl border-white/30 shadow-lg"
+                        : size === "normal"
+                        ? "max-h-[68px] sm:max-h-[78px] border-white/25"
+                        : "max-h-[44px] border-white/25"
                     )}
                   >
                     {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -263,7 +318,18 @@ export function Card({ card, size = "normal", onClick, selected }: CardProps) {
               )}
 
               {/* Bottom: Título do objeto perfeitamente legível */}
-              {size === "normal" ? (
+              {size === "large" ? (
+                <div className="px-3.5 pb-3 pt-1 flex flex-col text-center text-white shrink-0">
+                  <span className="font-extrabold leading-tight text-sm sm:text-base text-white drop-shadow-md">
+                    {card.name}
+                  </span>
+                  {card.description && (
+                    <p className="text-[10px] sm:text-[11px] text-white/95 leading-relaxed mt-1.5 pt-1.5 border-t border-white/20">
+                      {card.description}
+                    </p>
+                  )}
+                </div>
+              ) : size === "normal" ? (
                 <div className="px-2 pb-2 pt-0.5 flex flex-col text-center text-white shrink-0">
                   <span className="font-extrabold leading-tight text-[10.5px] sm:text-[11.5px] text-white drop-shadow-md line-clamp-1">
                     {card.name}
@@ -287,13 +353,15 @@ export function Card({ card, size = "normal", onClick, selected }: CardProps) {
           {card.type === "joker" && (
             <>
               {/* Top: Tag/Badge Coringa */}
-              <div className="pt-1.5 px-1.5 flex items-center justify-center shrink-0 w-full">
+              <div className={cn("flex items-center justify-center shrink-0 w-full", size === "large" ? "pt-2.5 px-3" : "pt-1.5 px-1.5")}>
                 <div
                   className={cn(
-                    "inline-flex items-center justify-center px-1.5 py-0.5 rounded border border-amber-300/70 bg-gradient-to-r from-red-500 via-amber-400 to-sky-500 text-white font-black uppercase tracking-wider text-center shadow-sm w-full truncate",
-                    size === "normal"
-                      ? "text-[7.5px] sm:text-[8px] leading-tight"
-                      : "text-[6.5px] sm:text-[7px] leading-none"
+                    "inline-flex items-center justify-center rounded border border-amber-300/70 bg-gradient-to-r from-red-500 via-amber-400 to-sky-500 text-white font-black uppercase tracking-wider text-center shadow-sm w-full truncate",
+                    size === "large"
+                      ? "px-2.5 py-1 text-[10px] sm:text-[11px] rounded-lg leading-tight"
+                      : size === "normal"
+                      ? "px-1.5 py-0.5 text-[7.5px] sm:text-[8px] leading-tight"
+                      : "px-1.5 py-0.5 text-[6.5px] sm:text-[7px] leading-none"
                   )}
                   title="CARTA CORINGA"
                 >
@@ -306,13 +374,17 @@ export function Card({ card, size = "normal", onClick, selected }: CardProps) {
                 <div
                   className={cn(
                     "flex-1 flex items-center justify-center min-h-0 overflow-hidden",
-                    size === "normal" ? "my-1 px-1.5" : "my-0.5 px-1"
+                    size === "large" ? "my-2 px-3" : size === "normal" ? "my-1 px-1.5" : "my-0.5 px-1"
                   )}
                 >
                   <div
                     className={cn(
-                      "relative w-full h-full rounded-lg overflow-hidden border border-amber-300/40 shadow-md bg-black/40 flex items-center justify-center",
-                      size === "normal" ? "max-h-[68px] sm:max-h-[78px]" : "max-h-[44px]"
+                      "relative w-full h-full rounded-lg overflow-hidden border shadow-md bg-black/40 flex items-center justify-center",
+                      size === "large"
+                        ? "max-h-[125px] sm:max-h-[145px] rounded-xl border-amber-300/50 shadow-lg"
+                        : size === "normal"
+                        ? "max-h-[68px] sm:max-h-[78px] border-amber-300/40"
+                        : "max-h-[44px] border-amber-300/40"
                     )}
                   >
                     {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -327,7 +399,18 @@ export function Card({ card, size = "normal", onClick, selected }: CardProps) {
               )}
 
               {/* Bottom: Título Coringa */}
-              {size === "normal" ? (
+              {size === "large" ? (
+                <div className="px-3.5 pb-3 pt-1 flex flex-col text-center text-white shrink-0">
+                  <span className="font-extrabold leading-tight text-base sm:text-lg text-white drop-shadow-md">
+                    {card.name || "Coringa"}
+                  </span>
+                  {card.description && (
+                    <p className="text-[10px] sm:text-[11px] text-white/95 leading-relaxed mt-1.5 pt-1.5 border-t border-white/20">
+                      {card.description}
+                    </p>
+                  )}
+                </div>
+              ) : size === "normal" ? (
                 <div className="px-2 pb-2 pt-0.5 flex flex-col text-center text-white shrink-0">
                   <span className="font-extrabold leading-tight text-[12px] sm:text-[13px] text-white drop-shadow-md">
                     {card.name || "Coringa"}

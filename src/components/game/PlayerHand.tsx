@@ -4,10 +4,10 @@ import { Card } from "./Card";
 interface PlayerHandProps {
   hand: CardType[];
   isActiveTurn: boolean;
-  onPlayCard: (cardId: string) => void;
+  onCardClick: (card: CardType) => void;
 }
 
-export function PlayerHand({ hand, isActiveTurn, onPlayCard }: PlayerHandProps) {
+export function PlayerHand({ hand, isActiveTurn, onCardClick }: PlayerHandProps) {
   return (
     <div className="w-full flex justify-center items-end px-4 pt-4 pb-2">
       {hand.length === 0 ? (
@@ -25,16 +25,20 @@ export function PlayerHand({ hand, isActiveTurn, onPlayCard }: PlayerHandProps) 
             return (
               <div 
                 key={card.id} 
-                className={`relative -ml-6 first:ml-0 transition-transform duration-200 ${isActiveTurn ? 'hover:-translate-y-6 hover:z-50 focus-within:z-50 cursor-pointer' : 'opacity-70 grayscale cursor-not-allowed'}`}
+                className={`relative -ml-6 first:ml-0 transition-transform duration-200 cursor-pointer hover:z-50 focus-within:z-50 ${
+                  isActiveTurn
+                    ? 'hover:-translate-y-6'
+                    : 'opacity-85 hover:opacity-100 hover:-translate-y-4'
+                }`}
                 style={{ 
                   zIndex: index,
                   transform: `rotate(${rotation}deg) translateY(${translateY}px)` 
                 }}
               >
-                <div className={isActiveTurn ? "" : "pointer-events-none"}>
+                <div>
                   <Card 
                     card={card} 
-                    onClick={() => isActiveTurn && onPlayCard(card.id)} 
+                    onClick={() => onCardClick(card)} 
                   />
                 </div>
               </div>

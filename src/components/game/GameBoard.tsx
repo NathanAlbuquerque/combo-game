@@ -1,7 +1,8 @@
-import { GameState, Player } from "@/types/game";
+import { GameState, Player, Card as CardType } from "@/types/game";
 import { OpponentView } from "./OpponentView";
 import { PlayerHand } from "./PlayerHand";
 import { Card } from "./Card";
+import { CardPreviewModal } from "./CardPreviewModal";
 import { CopyRoomButton } from "./CopyRoomButton";
 import { Button } from "@/components/ui/button";
 import { HelpCircle, X, Eye, UserCircle2, Sparkles, AlertTriangle, FileText } from "lucide-react";
@@ -34,6 +35,7 @@ export function GameBoard({
   const [targetingCardId, setTargetingCardId] = useState<string | null>(null);
   const [isHelpOpen, setIsHelpOpen] = useState(false);
   const [inspectingPlayer, setInspectingPlayer] = useState<Player | null>(null);
+  const [previewCard, setPreviewCard] = useState<CardType | null>(null);
 
   const me = state.players[myId];
   const opponents = Object.values(state.players).filter((p) => p.id !== myId);
@@ -92,6 +94,36 @@ export function GameBoard({
       onPlay(cardId);
     }
   };
+
+  const handleInspectCard = (card: CardType) => {
+    if (isPendingMyAction) {
+      handleResolvePending(card.id);
+      return;
+    }
+    setPreviewCard(card);
+  };
+
+  const handleConfirmPlayFromPreview = (card: CardType) => {
+    setPreviewCard(null);
+    handlePlayCard(card.id);
+  };
+
+  const canPlayPreviewCard = Boolean(
+    previewCard &&
+    (isMyExtraPlay
+      ? previewCard.type === "object"
+      : isActiveTurn)
+  );
+
+  const canPlayReason = !previewCard
+    ? undefined
+    : !isMyTurn
+    ? "Não é seu turno"
+    : state.pendingAction
+    ? "Ação pendente em andamento"
+    : isMyExtraPlay && previewCard.type !== "object"
+    ? "Apenas Cartas-Objeto na jogada extra"
+    : undefined;
 
   const handleOpponentClick = (targetId: string) => {
     if (targetingCardId) {
@@ -349,7 +381,7 @@ export function GameBoard({
         <PlayerHand 
           hand={me.hand} 
           isActiveTurn={isActiveTurn || isMyExtraPlay}
-          onPlayCard={handlePlayCard}
+          onCardClick={handleInspectCard}
         />
       </div>
 
@@ -540,6 +572,16 @@ export function GameBoard({
           </div>
         </div>
       )}
+
+      {/* MODAL DE PRÉ-VISUALIZAÇÃO E INSPEÇÃO DA CARTA */}
+      <CardPreviewModal
+        isOpen={Boolean(previewCard)}
+        card={previewCard}
+        canPlay={canPlayPreviewCard}
+        canPlayReason={canPlayReason}
+        onClose={() => setPreviewCard(null)}
+        onConfirmPlay={handleConfirmPlayFromPreview}
+      />
 
     </div>
   );
