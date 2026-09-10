@@ -1,4 +1,4 @@
-import { GameState, Player, Card as CardType } from "@/types/game";
+import { GameState, Card as CardType } from "@/types/game";
 import { OpponentView } from "./OpponentView";
 import { PlayerHand } from "./PlayerHand";
 import { Card } from "./Card";
@@ -6,7 +6,65 @@ import { CardPreviewModal } from "./CardPreviewModal";
 import { CopyRoomButton } from "./CopyRoomButton";
 import { Button } from "@/components/ui/button";
 import { HelpCircle, X, Eye, UserCircle2, Sparkles, AlertTriangle, FileText } from "lucide-react";
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
+
+function playTurnNotificationSound() {
+  if (typeof window === "undefined") return;
+  try {
+    const AudioContextClass =
+      window.AudioContext ||
+      (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+    if (!AudioContextClass) return;
+
+    const ctx = new AudioContextClass();
+    if (ctx.state === "suspended") {
+      ctx.resume().catch(() => {});
+    }
+
+    const now = ctx.currentTime;
+
+    // Arpejo senoidal C5 (523.25 Hz) -> G5 (783.99 Hz) sintetizado nativamente (~0.35s)
+    const notes = [
+      { freq: 523.25, start: 0, duration: 0.16, gain: 0.2 },
+      { freq: 783.99, start: 0.14, duration: 0.22, gain: 0.25 },
+    ];
+
+    notes.forEach(({ freq, start, duration, gain }) => {
+      const osc = ctx.createOscillator();
+      const gainNode = ctx.createGain();
+
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(freq, now + start);
+
+      gainNode.gain.setValueAtTime(0, now + start);
+      gainNode.gain.linearRampToValueAtTime(gain, now + start + 0.02);
+      gainNode.gain.exponentialRampToValueAtTime(0.0001, now + start + duration);
+
+      osc.connect(gainNode);
+      gainNode.connect(ctx.destination);
+
+      osc.start(now + start);
+      osc.stop(now + start + duration);
+    });
+
+    // Auto-fechamento do contexto de áudio após o término do arpejo
+    setTimeout(() => {
+      ctx.close().catch(() => {});
+    }, 450);
+  } catch (err) {
+    console.debug("Web Audio unavailable or blocked", err);
+  }
+}
+
+function triggerTurnHaptics() {
+  if (typeof navigator !== "undefined" && "vibrate" in navigator) {
+    try {
+      navigator.vibrate([100, 50, 100]);
+    } catch {
+      // Ignora silenciosamente se houver restrição no dispositivo
+    }
+  }
+}
 
 interface GameBoardProps {
   state: GameState;
@@ -34,10 +92,11 @@ export function GameBoard({
   const [tradingMode, setTradingMode] = useState(false);
   const [targetingCardId, setTargetingCardId] = useState<string | null>(null);
   const [isHelpOpen, setIsHelpOpen] = useState(false);
-  const [inspectingPlayer, setInspectingPlayer] = useState<Player | null>(null);
+  const [inspectingPlayerId, setInspectingPlayerId] = useState<string | null>(null);
   const [previewCard, setPreviewCard] = useState<CardType | null>(null);
 
   const me = state.players[myId];
+  const inspectingPlayer = inspectingPlayerId ? state.players[inspectingPlayerId] : null;
   const opponents = Object.values(state.players).filter((p) => p.id !== myId);
   
   const isGlobalHandsRevealed = Boolean(state.revealedHandsUntilTurnOfPlayerId);
@@ -50,6 +109,24 @@ export function GameBoard({
   
   // O turno é "ativo" se for minha vez normal e NÃO houver pendingAction rolando (que pausa o jogo)
   const isActiveTurn = isMyTurn && !state.pendingAction;
+  const isMyTurnActive = Boolean((isActiveTurn || isMyExtraPlay) && !me?.isEliminated && !state.pendingAction);
+
+  // Efeito sonoro nativo sintetizado (Web Audio) e feedback tátil (Vibration API) na troca de turno
+  const wasTurnActiveRef = useRef(false);
+  const wasExtraPlayRef = useRef(false);
+
+  useEffect(() => {
+    const becameMyTurn = isMyTurnActive && !wasTurnActiveRef.current;
+    const becameExtraPlay = isMyExtraPlay && !wasExtraPlayRef.current;
+
+    if (becameMyTurn || becameExtraPlay) {
+      playTurnNotificationSound();
+      triggerTurnHaptics();
+    }
+
+    wasTurnActiveRef.current = isMyTurnActive;
+    wasExtraPlayRef.current = Boolean(isMyExtraPlay);
+  }, [isMyTurnActive, isMyExtraPlay]);
 
   const topDiscard = state.discard.length > 0 ? state.discard[state.discard.length - 1] : undefined;
 
@@ -144,41 +221,51 @@ export function GameBoard({
     <div className="min-h-screen w-full bg-zinc-950 bg-gradient-to-b from-zinc-900/60 via-zinc-950 to-black flex justify-center items-center overflow-x-hidden font-sans">
       <div className="w-full max-w-[440px] sm:max-w-[480px] h-[100dvh] max-h-[100dvh] bg-background shadow-2xl relative flex flex-col justify-between overflow-hidden border-x border-border/40 select-none">
         
-        {/* AREA 1: Oponentes (Topo - Carrossel Compacto) */}
-        <div className={`w-full border-b bg-card/40 backdrop-blur-sm shadow-xs overflow-x-auto flex items-center justify-start px-2.5 gap-2.5 py-2 shrink-0 scrollbar-none transition-all duration-300 ${
-          isAnyHandRevealed ? "min-h-[185px] h-auto" : "h-[145px] sm:h-[155px]"
-        }`}>
-          {opponents.length === 0 ? (
-            <div className="w-full text-center text-xs text-muted-foreground py-4">Esperando oponentes...</div>
-          ) : (
-            opponents.map(opp => {
-              const isOppTurn = state.currentTurnPlayerId === opp.id;
-              const isOppRevealed = isGlobalHandsRevealed || Boolean(state.revealedPlayerIds?.includes(opp.id));
-              
-              let actionLabel = "";
-              let canClick = false;
-              
-              if (targetingCardId && isActiveTurn && !opp.isEliminated) {
-                actionLabel = "Usar Efeito";
-                canClick = true;
-              } else if (tradingMode && isActiveTurn && opp.hand.length > 0 && me.hand.length > 0 && !opp.isEliminated) {
-                actionLabel = "Trocar";
-                canClick = true;
-              }
-
-              return (
-                <OpponentView 
-                  key={opp.id} 
-                  player={opp} 
-                  isActiveTurn={isOppTurn}
-                  actionLabel={actionLabel}
-                  onActionClick={canClick ? () => handleOpponentClick(opp.id) : undefined}
-                  areHandsRevealed={isOppRevealed}
-                  onInspect={() => setInspectingPlayer(opp)}
-                />
-              );
-            })
+        {/* AREA 1: Oponentes (Topo - Carrossel Flexível com Sinalizadores de Rolagem) */}
+        <div className="relative w-full border-b bg-card/40 backdrop-blur-sm shadow-xs shrink-0">
+          {/* Sombras sutis nas bordas para indicar rolagem horizontal quando houver múltiplos oponentes */}
+          {opponents.length >= 2 && (
+            <>
+              <div className="pointer-events-none absolute left-0 top-0 bottom-0 w-4 bg-gradient-to-r from-background/90 via-background/40 to-transparent z-10" />
+              <div className="pointer-events-none absolute right-0 top-0 bottom-0 w-4 bg-gradient-to-l from-background/90 via-background/40 to-transparent z-10" />
+            </>
           )}
+
+          <div className={`w-full overflow-x-auto flex items-stretch justify-start px-3 gap-2.5 py-2.5 shrink-0 scrollbar-none transition-all duration-300 ${
+            isAnyHandRevealed ? "min-h-[255px] h-auto" : "min-h-[170px] h-auto"
+          }`}>
+            {opponents.length === 0 ? (
+              <div className="w-full text-center text-xs text-muted-foreground py-4">Esperando oponentes...</div>
+            ) : (
+              opponents.map(opp => {
+                const isOppTurn = state.currentTurnPlayerId === opp.id;
+                const isOppRevealed = isGlobalHandsRevealed || Boolean(state.revealedPlayerIds?.includes(opp.id));
+                
+                let actionLabel = "";
+                let canClick = false;
+                
+                if (targetingCardId && isActiveTurn && !opp.isEliminated) {
+                  actionLabel = "Usar Efeito";
+                  canClick = true;
+                } else if (tradingMode && isActiveTurn && opp.hand.length > 0 && me.hand.length > 0 && !opp.isEliminated) {
+                  actionLabel = "Trocar";
+                  canClick = true;
+                }
+
+                return (
+                  <OpponentView 
+                    key={opp.id} 
+                    player={opp} 
+                    isActiveTurn={isOppTurn}
+                    actionLabel={actionLabel}
+                    onActionClick={canClick ? () => handleOpponentClick(opp.id) : undefined}
+                    areHandsRevealed={isOppRevealed}
+                    onInspect={() => setInspectingPlayerId(opp.id)}
+                  />
+                );
+              })
+            )}
+          </div>
         </div>
 
         {/* AREA 2: Mesa Central (Deck, Descarte, Info de Turno, Meus Objetos na Mesa) */}
@@ -197,7 +284,11 @@ export function GameBoard({
               )}
 
               <div className="flex-1 flex justify-center px-1 overflow-hidden">
-                <div className="bg-background/95 backdrop-blur-md px-3 py-1 rounded-full border shadow-xs text-center flex items-center justify-center gap-1.5 max-w-full">
+                <div className={`px-3 py-1 rounded-full border shadow-xs text-center flex items-center justify-center gap-1.5 max-w-full transition-all duration-300 ${
+                  isMyTurnActive
+                    ? "bg-primary/15 border-primary/60 shadow-md shadow-primary/25 ring-2 ring-primary/30"
+                    : "bg-background/95 backdrop-blur-md"
+                }`}>
                   {me?.isEliminated ? (
                     <span className="text-muted-foreground font-black text-xs">Você foi eliminado 💀</span>
                   ) : isPendingMyAction ? (
@@ -219,11 +310,15 @@ export function GameBoard({
                       🔄 Escolha o oponente para trocar!
                     </span>
                   ) : isMyExtraPlay ? (
-                    <span className="text-violet-600 dark:text-violet-400 font-black animate-pulse text-xs truncate">
-                      Prompt Perfeito: Baixe um Objeto!
+                    <span className="text-violet-600 dark:text-violet-400 font-black animate-pulse text-xs truncate flex items-center gap-1">
+                      <Sparkles className="w-3.5 h-3.5 shrink-0 animate-spin" />
+                      <span>Prompt Perfeito: Baixe um Objeto!</span>
                     </span>
                   ) : isActiveTurn ? (
-                    <span className="text-primary font-black animate-pulse text-xs">Sua vez de jogar!</span>
+                    <span className="text-primary font-black animate-pulse text-xs sm:text-sm tracking-wide flex items-center gap-1.5">
+                      <span className="inline-block w-2 h-2 rounded-full bg-primary animate-ping shrink-0" />
+                      <span>Sua vez de jogar! ⚡</span>
+                    </span>
                   ) : (
                     <span className="text-muted-foreground text-xs font-semibold truncate">
                       Vez de: {state.players[state.currentTurnPlayerId!]?.name || "..."}
@@ -368,7 +463,16 @@ export function GameBoard({
         </div>
 
         {/* AREA 3: Minha Mão (Base Fixa) */}
-        <div className="min-h-[165px] max-h-[195px] w-full border-t bg-card flex flex-col shrink-0 shadow-[0_-4px_10px_-2px_rgba(0,0,0,0.08)] z-20 overflow-visible relative">
+        <div className={`min-h-[165px] max-h-[195px] w-full border-t bg-card flex flex-col shrink-0 shadow-[0_-4px_10px_-2px_rgba(0,0,0,0.08)] z-20 overflow-visible relative transition-all duration-300 ${
+          isMyTurnActive
+            ? "border-t-2 border-primary/70 shadow-[0_-8px_25px_-5px_rgba(var(--primary),0.3)]"
+            : ""
+        }`}>
+          {/* Luminous ring pulsante no container da mão quando for a vez do jogador */}
+          {isMyTurnActive && (
+            <div className="pointer-events-none absolute inset-0 ring-4 ring-primary ring-inset animate-pulse z-30" />
+          )}
+
           {/* Banner de Jogada Extra do Prompt Perfeito */}
           {isMyExtraPlay && (
             <div className="w-full bg-primary/15 border-b border-primary/30 text-foreground text-xs font-semibold py-1.5 px-3 flex items-center justify-between gap-2 animate-in fade-in shrink-0">
@@ -553,7 +657,7 @@ export function GameBoard({
         <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
           <div className="bg-card border-2 border-border text-card-foreground p-6 rounded-3xl max-w-xl w-full shadow-2xl relative animate-in zoom-in-95 duration-200 flex flex-col">
             <button 
-              onClick={() => setInspectingPlayer(null)}
+              onClick={() => setInspectingPlayerId(null)}
               className="absolute top-4 right-4 text-muted-foreground hover:text-foreground p-1 rounded-full hover:bg-muted transition-colors"
             >
               <X className="w-5 h-5" />
@@ -578,14 +682,19 @@ export function GameBoard({
                 </p>
               ) : (
                 inspectingPlayer.objectArea.map((card) => (
-                  <div key={card.id} className="shrink-0 animate-in zoom-in-95">
+                  <div 
+                    key={card.id} 
+                    className="shrink-0 animate-in zoom-in-95 cursor-pointer hover:scale-105 active:scale-95 transition-transform"
+                    onClick={() => setPreviewCard(card)}
+                    title={`Toque para ver detalhes de ${card.name}`}
+                  >
                     <Card card={card} size="normal" />
                   </div>
                 ))
               )}
             </div>
 
-            <Button onClick={() => setInspectingPlayer(null)} className="w-full mt-5 font-bold">
+            <Button onClick={() => setInspectingPlayerId(null)} className="w-full mt-5 font-bold">
               Fechar
             </Button>
           </div>
