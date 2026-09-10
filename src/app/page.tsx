@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { BookOpen } from "lucide-react";
+import { PublicRoomsList } from "@/components/game/PublicRoomsList";
 
 function HomeContent() {
   const router = useRouter();
@@ -48,8 +49,8 @@ function HomeContent() {
 
   return (
     <div className="min-h-screen w-full bg-zinc-950 bg-gradient-to-b from-zinc-900/60 via-zinc-950 to-black flex justify-center items-center overflow-x-hidden font-sans">
-      <div className="w-full max-w-[440px] sm:max-w-[480px] min-h-[100dvh] bg-background shadow-2xl relative flex flex-col justify-center items-center p-6 sm:p-8 overflow-hidden border-x border-border/40">
-        <main className="w-full flex flex-col items-center justify-center gap-6 text-card-foreground">
+      <div className="w-full max-w-[440px] sm:max-w-[480px] min-h-[100dvh] bg-background shadow-2xl relative flex flex-col items-center p-5 sm:p-6 overflow-y-auto border-x border-border/40">
+        <main className="w-full flex flex-col items-center justify-center gap-5 text-card-foreground my-auto py-4">
           <div className="text-center">
             <div className="inline-flex items-center justify-center px-3 py-1 rounded-full bg-primary/10 border border-primary/20 text-primary font-mono text-xs font-bold uppercase tracking-widest mb-3">
               Cidadania & Segurança Digital
@@ -111,6 +112,11 @@ function HomeContent() {
                 <Button onClick={handleJoinRoom} variant="secondary" className="font-bold h-11 px-5">
                   Entrar
                 </Button>
+              </div>
+
+              {/* Seção: Salas Públicas Abertas */}
+              <div className="pt-1 border-t">
+                <PublicRoomsList playerName={playerName} />
               </div>
 
               <div className="pt-2 border-t">

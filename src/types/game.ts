@@ -57,6 +57,15 @@ export type MatchStats = {
   }>;
 };
 
+export type RoomSummary = {
+  id: string;
+  playerCount: number;
+  maxPlayers: number;
+  status: 'lobby' | 'playing' | 'finished';
+  createdAt: number;
+  leaderName: string;
+};
+
 export interface GameState {
   status: 'lobby' | 'playing' | 'finished';
   players: Record<string, Player>;

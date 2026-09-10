@@ -1,5 +1,5 @@
 import type * as Party from "partykit/server";
-import { GameState, ClientMessage, ServerMessage, Card, Player, MatchStats } from "../src/types/game";
+import { GameState, ClientMessage, ServerMessage, Card, Player, MatchStats, RoomSummary } from "../src/types/game";
 import { OBJECT_CARDS_DATA, EFFECTS_CARDS_DATA } from "../src/data/cards";
 
 function shuffleDeck<T>(array: T[]): T[] {
@@ -57,6 +57,8 @@ function generateDeck(): Card[] {
 
 export default class MainServer implements Party.Server {
   private state: GameState;
+  private createdAt: number = Date.now();
+  private registryRooms: Map<string, RoomSummary> = new Map();
 
   constructor(readonly room: Party.Room) {
     this.state = {
@@ -76,6 +78,136 @@ export default class MainServer implements Party.Server {
       revealedPlayerUntilTurn: {},
       stats: null,
     };
+  }
+
+  async onStart() {
+    if (this.room.id === "global-registry") {
+      try {
+        const saved = await this.room.storage.get<Record<string, RoomSummary>>("rooms");
+        if (saved) {
+          this.registryRooms = new Map(Object.entries(saved));
+        }
+      } catch (err) {
+        console.warn("Aviso ao recuperar storage do global-registry:", err);
+      }
+    }
+  }
+
+  async onRequest(req: Party.Request): Promise<Response> {
+    const corsHeaders = {
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+      "Access-Control-Allow-Headers": "Content-Type",
+    };
+
+    if (req.method === "OPTIONS") {
+      return new Response(null, { headers: corsHeaders });
+    }
+
+    if (this.room.id === "global-registry") {
+      if (req.method === "GET") {
+        const now = Date.now();
+        const activeRooms: RoomSummary[] = [];
+
+        for (const [id, summary] of this.registryRooms.entries()) {
+          if (summary.playerCount <= 0 || now - summary.createdAt > 3 * 60 * 60 * 1000) {
+            this.registryRooms.delete(id);
+          } else {
+            activeRooms.push(summary);
+          }
+        }
+
+        activeRooms.sort((a, b) => {
+          if (a.status === "lobby" && b.status !== "lobby") return -1;
+          if (a.status !== "lobby" && b.status === "lobby") return 1;
+          return b.createdAt - a.createdAt;
+        });
+
+        return new Response(JSON.stringify(activeRooms), {
+          headers: {
+            "Content-Type": "application/json",
+            "Cache-Control": "no-store, max-age=0",
+            ...corsHeaders,
+          },
+        });
+      }
+
+      if (req.method === "POST") {
+        try {
+          const body = (await req.json()) as {
+            action: "update" | "delete";
+            roomId?: string;
+            summary?: RoomSummary;
+          };
+
+          if (body.action === "delete" || (body.summary && body.summary.playerCount <= 0)) {
+            const targetId = body.roomId || body.summary?.id;
+            if (targetId) {
+              this.registryRooms.delete(targetId);
+            }
+          } else if (body.action === "update" && body.summary) {
+            this.registryRooms.set(body.summary.id, body.summary);
+          }
+
+          try {
+            await this.room.storage.put("rooms", Object.fromEntries(this.registryRooms));
+          } catch (storageErr) {
+            console.warn("Aviso ao persistir storage no global-registry:", storageErr);
+          }
+
+          return new Response(JSON.stringify({ ok: true }), {
+            headers: { "Content-Type": "application/json", ...corsHeaders },
+          });
+        } catch (e) {
+          return new Response(JSON.stringify({ error: String(e) }), {
+            status: 400,
+            headers: { "Content-Type": "application/json", ...corsHeaders },
+          });
+        }
+      }
+    }
+
+    return new Response(JSON.stringify({ status: "ok", roomId: this.room.id }), {
+      headers: { "Content-Type": "application/json", ...corsHeaders },
+    });
+  }
+
+  private async notifyRegistry(action?: "update" | "delete") {
+    if (this.room.id === "global-registry") return;
+
+    try {
+      const activeCount = this.playerToConnectionId.size;
+      const isDelete = action === "delete" || activeCount === 0;
+
+      const leader = this.state.creatorId
+        ? this.state.players[this.state.creatorId]
+        : Object.values(this.state.players)[0];
+
+      const summary: RoomSummary = {
+        id: this.room.id,
+        playerCount: activeCount,
+        maxPlayers: 5,
+        status: this.state.status,
+        createdAt: this.createdAt,
+        leaderName: leader?.name || "Líder",
+      };
+
+      const partyName = this.room.name || "main";
+      const registryStub = this.room.context?.parties?.[partyName]?.get("global-registry");
+      if (registryStub) {
+        await registryStub.fetch("", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: isDelete ? "delete" : "update",
+            roomId: this.room.id,
+            summary: isDelete ? undefined : summary,
+          }),
+        });
+      }
+    } catch (err) {
+      console.error("Erro ao notificar global-registry:", err);
+    }
   }
 
   private addLog(message: string) {
@@ -213,6 +345,7 @@ export default class MainServer implements Party.Server {
     };
 
     this.addLog("A partida começou!");
+    this.notifyRegistry();
     this.broadcastSync();
   }
 
@@ -224,6 +357,10 @@ export default class MainServer implements Party.Server {
   }
 
   onConnect(conn: Party.Connection) {
+    if (this.room.id === "global-registry") {
+      conn.close();
+      return;
+    }
     console.log(`Conexão estabelecida: ${conn.id} na sala ${this.room.id}`);
   }
 
@@ -265,6 +402,7 @@ export default class MainServer implements Party.Server {
       this.checkAutoStartTimer();
       this.broadcastSync();
     }
+    this.notifyRegistry();
   }
 
   private reclaimPlayerCards(playerId: string) {
@@ -504,6 +642,7 @@ export default class MainServer implements Party.Server {
           this.connectionToPlayerId.set(sender.id, existingPlayerId);
           this.playerToConnectionId.set(existingPlayerId, sender.id);
 
+          this.notifyRegistry();
           this.broadcastSync();
           return;
         }
@@ -536,6 +675,7 @@ export default class MainServer implements Party.Server {
         }
 
         this.checkAutoStartTimer();
+        this.notifyRegistry();
         this.broadcastSync();
         return;
       }
@@ -1116,6 +1256,7 @@ export default class MainServer implements Party.Server {
         }
 
         this.checkAutoStartTimer();
+        this.notifyRegistry();
         this.syncState();
         return;
       }
@@ -1127,6 +1268,9 @@ export default class MainServer implements Party.Server {
 
   private syncState() {
     this.checkEliminations();
+    if (this.state.status === "finished") {
+      this.notifyRegistry();
+    }
     this.broadcastSync();
   }
 
