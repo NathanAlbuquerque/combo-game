@@ -4,8 +4,7 @@ import { useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Gamepad2, DoorOpen, Trophy, BookOpen, Sparkles, ChevronRight } from "lucide-react";
-import { LeaderboardModal } from "@/components/game/LeaderboardModal";
-import { JoinRoomModal } from "@/components/game/JoinRoomModal";
+import { LeaderboardModal, JoinRoomModal } from "@/components/game";
 
 function HomeContent() {
   const router = useRouter();
