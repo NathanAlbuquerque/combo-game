@@ -1,99 +1,39 @@
 "use client";
 
-import { GameState, Card as CardType, RoomSettings } from "@/types/game";
-import { OpponentView } from "./OpponentView";
-import { PlayerHand } from "./PlayerHand";
-import { Card } from "./Card";
-import { CardPreviewModal } from "./CardPreviewModal";
-import { CopyRoomButton } from "./CopyRoomButton";
-import { ShareRoomModal } from "./ShareRoomModal";
-import { RoomSettingsModal } from "./RoomSettingsModal";
-import { ReactionPicker } from "./ReactionPicker";
-import { useFullscreen } from "@/hooks/useFullscreen";
-import { Button } from "@/components/ui/button";
-import {
-  HelpCircle,
-  X,
-  Eye,
-  UserCircle2,
-  Sparkles,
-  AlertTriangle,
-  FileText,
-  Users,
-  Trophy,
-  History,
-  LogOut,
-  Settings,
-  QrCode,
-  Timer,
-  Maximize,
-  Minimize,
-  ChevronDown,
-  ChevronUp,
-} from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { RoomPlayersDrawer } from "./RoomPlayersDrawer";
-import { LeaderboardModal } from "./LeaderboardModal";
-import { cn } from "@/lib/utils";
+import { GameState, Card as CardType, RoomSettings } from "@/types/game";
+import { useFullscreen, useTurnAlerts, useTurnTimer } from "@/hooks";
+import {
+  TurnSplashAlert,
+  GameBoardLeftFlank,
+  GameBoardRightFlank,
+  GameBoardMobileHeader,
+  DeckDiscardPiles,
+  PlayerObjectsArea,
+  PendingActionModal,
+  OpponentView,
+  PlayerHand,
+  ReactionPicker,
+  CardPreviewModal,
+  RoomPlayersDrawer,
+  LeaderboardModal,
+  ShareRoomModal,
+  RoomSettingsModal,
+} from "./";
+import { Eye, Sparkles, X } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
-function playTurnNotificationSound() {
-  if (typeof window === "undefined") return;
-  try {
-    const AudioContextClass =
-      window.AudioContext ||
-      (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-    if (!AudioContextClass) return;
-
-    const ctx = new AudioContextClass();
-    if (ctx.state === "suspended") {
-      ctx.resume().catch(() => {});
-    }
-
-    const now = ctx.currentTime;
-
-    // Arpejo senoidal C5 (523.25 Hz) -> G5 (783.99 Hz) sintetizado nativamente (~0.35s)
-    const notes = [
-      { freq: 523.25, start: 0, duration: 0.16, gain: 0.2 },
-      { freq: 783.99, start: 0.14, duration: 0.22, gain: 0.25 },
-    ];
-
-    notes.forEach(({ freq, start, duration, gain }) => {
-      const osc = ctx.createOscillator();
-      const gainNode = ctx.createGain();
-
-      osc.type = "sine";
-      osc.frequency.setValueAtTime(freq, now + start);
-
-      gainNode.gain.setValueAtTime(0, now + start);
-      gainNode.gain.linearRampToValueAtTime(gain, now + start + 0.02);
-      gainNode.gain.exponentialRampToValueAtTime(0.0001, now + start + duration);
-
-      osc.connect(gainNode);
-      gainNode.connect(ctx.destination);
-
-      osc.start(now + start);
-      osc.stop(now + start + duration);
-    });
-
-    // Auto-fechamento do contexto de áudio após o término do arpejo
-    setTimeout(() => {
-      ctx.close().catch(() => {});
-    }, 450);
-  } catch (err) {
-    console.debug("Web Audio unavailable or blocked", err);
-  }
-}
-
-function triggerTurnHaptics() {
-  if (typeof navigator !== "undefined" && "vibrate" in navigator) {
-    try {
-      navigator.vibrate([100, 50, 100]);
-    } catch {
-      // Ignora silenciosamente se houver restrição no dispositivo
-    }
-  }
-}
+const TARGET_EFFECTS = [
+  "Senha Fraca Detectada",
+  "Rede de Apoio",
+  "Tomou Block!",
+  "Vídeo Deepfake",
+  "Esqueceu a Senha",
+  "Plágio Detectado",
+  "Alerta de Phishing",
+  "LI E ACEITO!",
+];
 
 interface GameBoardProps {
   state: GameState;
@@ -120,8 +60,10 @@ export function GameBoard({
   onUpdateSettings,
   onSendReaction,
 }: GameBoardProps) {
+  const router = useRouter();
   const { isFullscreen, isSupported: isFullscreenSupported, toggleFullscreen } = useFullscreen();
 
+  // Estados de Modais e Interações
   const [targetingCardId, setTargetingCardId] = useState<string | null>(null);
   const [isHelpOpen, setIsHelpOpen] = useState(false);
   const [isPlayersDrawerOpen, setIsPlayersDrawerOpen] = useState(false);
@@ -131,92 +73,53 @@ export function GameBoard({
   const [mobileToast, setMobileToast] = useState<string | null>(null);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
-  const [isActionLogExpanded, setIsActionLogExpanded] = useState(false);
-  const [showTurnFlash, setShowTurnFlash] = useState(false);
-  const [now, setNow] = useState(() => Date.now());
 
-  // Contador em tempo real do cronômetro Anti-Stall
-  useEffect(() => {
-    if (!state.roomSettings?.turnTimerEnabled || !state.turnExpiresAt || state.status !== "playing") {
-      return;
-    }
-
-    const timer = setInterval(() => {
-      setNow(Date.now());
-    }, 250);
-    return () => clearInterval(timer);
-  }, [state.roomSettings?.turnTimerEnabled, state.turnExpiresAt, state.status]);
-
-  const remainingSeconds = (state.roomSettings?.turnTimerEnabled && state.turnExpiresAt && state.status === "playing")
-    ? Math.max(0, Math.ceil((state.turnExpiresAt - now) / 1000))
-    : null;
-  
-  const router = useRouter();
   const lastLogLengthRef = useRef(state.actionLog.length);
-  const logEndRef = useRef<HTMLDivElement>(null);
-
   const me = state.players[myId];
   const isSpectator = Boolean(me?.isSpectating);
   const inspectingPlayer = inspectingPlayerId ? state.players[inspectingPlayerId] : null;
 
   // Jogadores ativos da partida (exclui espectadores para não poluir o carrossel de oponentes)
   const activePlayers = Object.values(state.players).filter((p) => !p.isSpectating);
-  const opponents = isSpectator
-    ? activePlayers
-    : activePlayers.filter((p) => p.id !== myId);
-  
+  const opponents = isSpectator ? activePlayers : activePlayers.filter((p) => p.id !== myId);
+
   const isGlobalHandsRevealed = Boolean(state.revealedHandsUntilTurnOfPlayerId);
-  const isAnyHandRevealed = isGlobalHandsRevealed || Boolean(state.revealedPlayerIds && state.revealedPlayerIds.length > 0);
+  const isAnyHandRevealed =
+    isGlobalHandsRevealed || Boolean(state.revealedPlayerIds && state.revealedPlayerIds.length > 0);
   const isMyHandRevealed = isGlobalHandsRevealed || Boolean(state.revealedPlayerIds?.includes(myId));
-  
+
   const isMyTurn = state.currentTurnPlayerId === myId;
   const isPendingMyAction = state.pendingAction?.requiredPlayerId === myId;
   const isMyExtraPlay = state.extraPlayPlayerId === myId;
-  
-  // O turno é "ativo" se for minha vez normal e NÃO houver pendingAction rolando (que pausa o jogo)
   const isActiveTurn = isMyTurn && !state.pendingAction && !isSpectator;
-  const isMyTurnActive = Boolean((isActiveTurn || isMyExtraPlay) && !me?.isEliminated && !isSpectator && !state.pendingAction);
+  const isMyTurnActive = Boolean(
+    (isActiveTurn || isMyExtraPlay) && !me?.isEliminated && !isSpectator && !state.pendingAction
+  );
 
-  // Efeito sonoro nativo sintetizado (Web Audio), feedback tátil (Vibration API) e Flash Visual na troca de turno
-  const wasTurnActiveRef = useRef(false);
-  const wasExtraPlayRef = useRef(false);
+  // Hook desacoplado de Alertas de Turno (Som, Vibração e Flash)
+  const { showTurnFlash } = useTurnAlerts(isMyTurnActive, Boolean(isMyExtraPlay));
 
-  useEffect(() => {
-    const becameMyTurn = isMyTurnActive && !wasTurnActiveRef.current;
-    const becameExtraPlay = isMyExtraPlay && !wasExtraPlayRef.current;
+  // Hook desacoplado de Cronômetro Anti-Stall
+  const { remainingSeconds } = useTurnTimer({
+    enabled: state.roomSettings?.turnTimerEnabled,
+    turnExpiresAt: state.turnExpiresAt,
+    duration: state.roomSettings?.turnTimerDuration,
+    isActive: state.status === "playing",
+  });
 
-    if (becameMyTurn || becameExtraPlay) {
-      playTurnNotificationSound();
-      triggerTurnHaptics();
-      setShowTurnFlash(true);
-      const timer = setTimeout(() => setShowTurnFlash(false), 1200);
-      return () => clearTimeout(timer);
-    }
-
-    wasTurnActiveRef.current = isMyTurnActive;
-    wasExtraPlayRef.current = Boolean(isMyExtraPlay);
-  }, [isMyTurnActive, isMyExtraPlay]);
-
+  // Notificação flutuante de ActionLog em telas mobile
   useEffect(() => {
     if (state.actionLog.length > 0 && state.actionLog.length !== lastLogLengthRef.current) {
       lastLogLengthRef.current = state.actionLog.length;
       const latest = state.actionLog[state.actionLog.length - 1];
-      const showTimer = setTimeout(() => {
-        setMobileToast(latest);
-      }, 0);
-      const hideTimer = setTimeout(() => {
-        setMobileToast(null);
-      }, 4000);
+      const showTimer = setTimeout(() => setMobileToast(latest), 0);
+      const hideTimer = setTimeout(() => setMobileToast(null), 4000);
       return () => {
         clearTimeout(showTimer);
         clearTimeout(hideTimer);
       };
     }
   }, [state.actionLog]);
-
-  useEffect(() => {
-    logEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [state.actionLog.length]);
 
   const topDiscard = state.discard.length > 0 ? state.discard[state.discard.length - 1] : undefined;
 
@@ -234,27 +137,15 @@ export function GameBoard({
       return;
     }
 
-    const card = me.hand.find(c => c.id === cardId);
+    const card = me?.hand.find((c) => c.id === cardId);
     if (!card) return;
 
     if (isMyExtraPlay) {
-      if (card.type === 'object') {
-        onPlay(cardId);
-      }
+      if (card.type === "object") onPlay(cardId);
       return;
     }
-    
-    const targetEffects = [
-      'Senha Fraca Detectada',
-      'Rede de Apoio',
-      'Tomou Block!',
-      'Vídeo Deepfake',
-      'Esqueceu a Senha',
-      'Plágio Detectado',
-      'Alerta de Phishing',
-      'LI E ACEITO!'
-    ];
-    if (card.type === 'effect' && card.name && targetEffects.includes(card.name)) {
+
+    if (card.type === "effect" && card.name && TARGET_EFFECTS.includes(card.name)) {
       setTargetingCardId(cardId);
     } else {
       onPlay(cardId);
@@ -275,10 +166,7 @@ export function GameBoard({
   };
 
   const canPlayPreviewCard = Boolean(
-    previewCard &&
-    (isMyExtraPlay
-      ? previewCard.type === "object"
-      : isActiveTurn)
+    previewCard && (isMyExtraPlay ? previewCard.type === "object" : isActiveTurn)
   );
 
   const canPlayReason = !previewCard
@@ -298,248 +186,34 @@ export function GameBoard({
     }
   };
 
-  const cancelTargeting = () => {
-    setTargetingCardId(null);
-  };
-
   return (
     <div className="min-h-screen w-full bg-zinc-950 bg-gradient-to-b from-zinc-900/60 via-zinc-950 to-black flex justify-center items-center overflow-x-hidden font-sans relative">
-      {/* ========================================================= */}
-      {/* FLASH LUMINOSO E SPLASH CENTRAL ("SUA VEZ!") */}
-      {/* ========================================================= */}
-      {showTurnFlash && (
-        <>
-          <div className="pointer-events-none fixed inset-0 z-50 ring-8 ring-emerald-500/80 inset-0 shadow-[inset_0_0_120px_rgba(16,185,129,0.45)] animate-pulse transition-opacity duration-300" />
-          <div className="pointer-events-none fixed inset-0 z-50 flex items-center justify-center p-4">
-            <div className="bg-emerald-500 text-zinc-950 px-6 py-3.5 rounded-2xl font-black text-xl sm:text-2xl tracking-wider shadow-2xl shadow-emerald-500/50 border-2 border-emerald-300 flex items-center gap-3 animate-in zoom-in-75 fade-in duration-200">
-              <span className="text-2xl animate-bounce">⚡</span>
-              <span>SUA VEZ DE JOGAR!</span>
-            </div>
-          </div>
-        </>
-      )}
+      {/* Flash Luminoso e Splash Central de Turno */}
+      <TurnSplashAlert show={showTurnFlash} />
 
       <div className="w-full flex justify-center items-stretch h-[100dvh] max-h-[100dvh]">
-        
-        {/* ========================================================= */}
-        {/* FLANCO ESQUERDO (Desktop: hidden lg:flex) */}
-        {/* ========================================================= */}
-        <aside className="hidden lg:flex flex-col w-[230px] xl:w-[250px] p-3.5 py-4 shrink-0 justify-between gap-3 select-none">
-          <div className="space-y-3 shrink-0">
-            {/* 1. Cabeçalho com Código da Sala e Copiar Link */}
-            <div className="bg-zinc-900/60 backdrop-blur-md border border-zinc-800/80 rounded-2xl p-3.5 shadow-md space-y-2.5">
-              <div className="flex items-center justify-between">
-                <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-400">
-                  Código da Sala
-                </span>
-                <span className="font-mono font-black text-sm text-zinc-100 tracking-widest bg-zinc-950 px-2 py-0.5 rounded-lg border border-zinc-700/80 select-all shadow-inner">
-                  #{roomId || "---"}
-                </span>
-              </div>
-              {roomId && (
-                <div className="flex flex-col gap-1.5">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setIsShareModalOpen(true)}
-                    className="w-full justify-center font-bold text-xs h-8 bg-primary/10 hover:bg-primary/20 text-primary border-primary/30 cursor-pointer gap-1.5 shadow-2xs"
-                  >
-                    <QrCode className="w-3.5 h-3.5" />
-                    <span>QR Code / Convidar</span>
-                  </Button>
-                  <CopyRoomButton
-                    roomId={roomId}
-                    variant="secondary"
-                    size="sm"
-                    className="w-full justify-center font-bold text-xs h-8 bg-zinc-800/80 hover:bg-zinc-700/80 text-zinc-100 border-zinc-700 cursor-pointer"
-                  />
-                </div>
-              )}
-            </div>
+        {/* FLANCO ESQUERDO DESKTOP */}
+        <GameBoardLeftFlank
+          roomId={roomId}
+          actionLog={state.actionLog}
+          isMyTurnActive={isMyTurnActive}
+          isSpectator={isSpectator}
+          isMyExtraPlay={Boolean(isMyExtraPlay)}
+          currentTurnPlayerName={state.players[state.currentTurnPlayerId || ""]?.name}
+          remainingSeconds={remainingSeconds}
+          turnTimerDuration={state.roomSettings?.turnTimerDuration}
+          turnTimerEnabled={state.roomSettings?.turnTimerEnabled}
+          onOpenShareModal={() => setIsShareModalOpen(true)}
+        />
 
-            {/* 2. Indicador Fixo de Quem Está Jogando (Visão dos Oponentes & Jogador Local) */}
-            <div
-              className={cn(
-                "p-3.5 rounded-2xl border backdrop-blur-md shadow-md transition-all duration-300",
-                isMyTurnActive
-                  ? "bg-emerald-950/40 border-emerald-500/60 shadow-emerald-950/30"
-                  : isSpectator
-                  ? "bg-amber-950/30 border-amber-500/40"
-                  : "bg-zinc-900/60 border-zinc-800/80"
-              )}
-            >
-              <div className="flex items-center justify-between gap-1.5 mb-2">
-                <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-400">
-                  Turno Atual
-                </span>
-                {isMyTurnActive ? (
-                  <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 text-[10px] font-black tracking-wide border border-emerald-500/40 flex items-center gap-1">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
-                    SUA VEZ
-                  </span>
-                ) : isSpectator ? (
-                  <span className="px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-400 text-[10px] font-black">
-                    ESPECTADOR
-                  </span>
-                ) : (
-                  <span className="px-2 py-0.5 rounded-full bg-zinc-800 text-zinc-400 text-[10px] font-bold">
-                    EM ANDAMENTO
-                  </span>
-                )}
-              </div>
-
-              <div className="flex items-center gap-2.5">
-                <div
-                  className={cn(
-                    "w-9 h-9 rounded-xl flex items-center justify-center font-black text-sm shrink-0 border",
-                    isMyTurnActive
-                      ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/40 shadow-xs"
-                      : "bg-zinc-800 text-zinc-300 border-zinc-700"
-                  )}
-                >
-                  {isMyTurnActive
-                    ? "⚡"
-                    : (state.players[state.currentTurnPlayerId!]?.name || "?").charAt(0).toUpperCase()}
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p
-                    className={cn(
-                      "text-xs font-black truncate",
-                      isMyTurnActive ? "text-emerald-400" : "text-zinc-200"
-                    )}
-                  >
-                    {isMyTurnActive
-                      ? "Você"
-                      : state.players[state.currentTurnPlayerId!]?.name || "Aguardando..."}
-                  </p>
-                  <p className="text-[10px] text-zinc-400 truncate">
-                    {isMyTurnActive
-                      ? isMyExtraPlay
-                        ? "Jogada extra (Objeto)"
-                        : "Sua vez de jogar"
-                      : isSpectator
-                      ? "Assistindo à partida"
-                      : "Aguardando jogada"}
-                  </p>
-                </div>
-              </div>
-
-              {/* Anti-Stall Timer no Card Desktop */}
-              {state.roomSettings?.turnTimerEnabled && remainingSeconds !== null && (
-                <div className="mt-2.5 pt-2.5 border-t border-zinc-800/80 space-y-1">
-                  <div className="flex items-center justify-between text-[10px] font-mono">
-                    <span className="text-zinc-400 flex items-center gap-1 font-bold">
-                      <Timer className="w-3 h-3 text-zinc-400" /> Tempo
-                    </span>
-                    <span
-                      className={cn(
-                        "font-black px-1.5 py-0.5 rounded",
-                        remainingSeconds <= 5
-                          ? "text-red-400 bg-red-500/10 font-bold animate-pulse"
-                          : remainingSeconds <= 10
-                          ? "text-amber-400 bg-amber-500/10"
-                          : "text-primary"
-                      )}
-                    >
-                      {remainingSeconds}s
-                    </span>
-                  </div>
-                  <div className="w-full h-1 bg-zinc-800 rounded-full overflow-hidden">
-                    <div
-                      className={cn(
-                        "h-full transition-all duration-200 ease-linear rounded-full",
-                        remainingSeconds > 10
-                          ? "bg-primary"
-                          : remainingSeconds > 5
-                          ? "bg-amber-500"
-                          : "bg-red-500 animate-pulse"
-                      )}
-                      style={{
-                        width: `${Math.min(
-                          100,
-                          Math.max(
-                            0,
-                            (remainingSeconds /
-                              (state.roomSettings.turnTimerDuration || 30)) *
-                              100
-                          )
-                        )}%`,
-                      }}
-                    />
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* 3. Acordeão do Histórico de Jogadas */}
-          <div
-            className={cn(
-              "flex flex-col transition-all duration-300",
-              isActionLogExpanded ? "flex-1 min-h-0" : "shrink-0"
-            )}
-          >
-            <button
-              type="button"
-              onClick={() => setIsActionLogExpanded(!isActionLogExpanded)}
-              className="w-full flex items-center justify-between p-3 rounded-2xl bg-zinc-900/60 hover:bg-zinc-800/80 active:scale-[0.99] border border-zinc-800/80 hover:border-zinc-700 text-left transition-all cursor-pointer shadow-md group"
-            >
-              <div className="flex items-center gap-2 truncate">
-                <span className="text-sm shrink-0">📜</span>
-                <span className="text-xs font-black text-zinc-200 tracking-tight group-hover:text-primary transition-colors truncate">
-                  Histórico ({state.actionLog.length})
-                </span>
-              </div>
-              <div className="flex items-center gap-1.5 shrink-0">
-                {isActionLogExpanded ? (
-                  <ChevronUp className="w-4 h-4 text-zinc-400 group-hover:text-zinc-200 transition-transform" />
-                ) : (
-                  <ChevronDown className="w-4 h-4 text-zinc-400 group-hover:text-zinc-200 transition-transform" />
-                )}
-              </div>
-            </button>
-
-            {isActionLogExpanded && (
-              <div className="flex-1 flex flex-col min-h-0 bg-zinc-900/60 backdrop-blur-md border border-zinc-800/80 rounded-2xl p-3 shadow-xl mt-2 animate-in fade-in slide-in-from-top-2 duration-200">
-                <div className="flex-1 overflow-y-auto space-y-2 pr-1 scrollbar-thin scrollbar-thumb-zinc-700 scrollbar-track-transparent">
-                  {state.actionLog.length === 0 ? (
-                    <div className="h-full flex flex-col items-center justify-center text-center p-3 text-zinc-500 text-xs gap-1.5">
-                      <History className="w-6 h-6 opacity-30" />
-                      <span>Aguardando o início das jogadas...</span>
-                    </div>
-                  ) : (
-                    state.actionLog.map((log, index) => (
-                      <div
-                        key={index}
-                        className="p-2 rounded-xl bg-zinc-950/60 border border-zinc-800/80 text-[11px] leading-snug text-zinc-300 shadow-2xs"
-                      >
-                        <span className="text-[9.5px] font-mono font-bold text-zinc-500 block mb-0.5">
-                          #{index + 1}
-                        </span>
-                        <p className="break-words font-medium">{log}</p>
-                      </div>
-                    ))
-                  )}
-                  <div ref={logEndRef} />
-                </div>
-              </div>
-            )}
-          </div>
-        </aside>
-
-        {/* ========================================================= */}
-        {/* CONTÊINER CENTRAL DO JOGO (Mobile & Desktop) */}
-        {/* ========================================================= */}
+        {/* CONTÊINER CENTRAL DO JOGO */}
         <div className="w-full max-w-[440px] sm:max-w-[480px] h-[100dvh] max-h-[100dvh] bg-background shadow-2xl relative flex flex-col justify-between overflow-hidden border-x border-border/40 select-none shrink-0">
-          
-          {/* Banner Flutuante de Modo Espectador */}
+          {/* Banner de Modo Espectador */}
           {isSpectator && (
             <div className="absolute top-2 left-1/2 -translate-x-1/2 z-40 w-[92%] max-w-[400px] bg-amber-500 text-amber-950 font-black text-xs px-3.5 py-2 rounded-2xl shadow-xl border border-amber-400/90 backdrop-blur-md flex items-center justify-between gap-2 animate-in slide-in-from-top-3 duration-300">
               <div className="flex items-center gap-2 truncate">
                 <span className="text-base shrink-0">👁️</span>
-                <span className="truncate">
-                  Partida em andamento • Você entrará na próxima rodada!
-                </span>
+                <span className="truncate">Partida em andamento • Você entrará na próxima rodada!</span>
               </div>
               <span className="text-[10px] bg-amber-600/30 px-2 py-0.5 rounded-full font-bold uppercase tracking-wider shrink-0">
                 Espectador
@@ -547,7 +221,7 @@ export function GameBoard({
             </div>
           )}
 
-          {/* Toast Flutuante de ActionLog no Mobile (lg:hidden) */}
+          {/* Toast Flutuante de ActionLog no Mobile */}
           {mobileToast && (
             <div
               onClick={() => setMobileToast(null)}
@@ -569,9 +243,8 @@ export function GameBoard({
             </div>
           )}
 
-          {/* AREA 1: Oponentes (Topo - Carrossel Flexível com Sinalizadores de Rolagem) */}
+          {/* AREA 1: Oponentes (Topo) */}
           <div className="relative w-full border-b bg-card/40 backdrop-blur-sm shadow-xs shrink-0">
-            {/* Sombras sutis nas bordas para indicar rolagem horizontal quando houver múltiplos oponentes */}
             {opponents.length >= 2 && (
               <>
                 <div className="pointer-events-none absolute left-0 top-0 bottom-0 w-4 bg-gradient-to-r from-background/90 via-background/40 to-transparent z-10" />
@@ -579,30 +252,32 @@ export function GameBoard({
               </>
             )}
 
-            <div className={`w-full overflow-x-auto flex items-stretch justify-start px-3 gap-2.5 py-2.5 shrink-0 scrollbar-none transition-all duration-300 ${
-              isAnyHandRevealed ? "min-h-[255px] h-auto" : "min-h-[170px] h-auto"
-            }`}>
+            <div
+              className={`w-full overflow-x-auto flex items-stretch justify-start px-3 gap-2.5 py-2.5 shrink-0 scrollbar-none transition-all duration-300 ${
+                isAnyHandRevealed ? "min-h-[255px] h-auto" : "min-h-[170px] h-auto"
+              }`}
+            >
               {opponents.length === 0 ? (
                 <div className="w-full text-center text-xs text-muted-foreground py-4">
                   {isSpectator ? "Aguardando jogadores entrarem na partida..." : "Esperando oponentes..."}
                 </div>
               ) : (
-                opponents.map(opp => {
+                opponents.map((opp) => {
                   const isOppTurn = state.currentTurnPlayerId === opp.id;
-                  const isOppRevealed = isGlobalHandsRevealed || Boolean(state.revealedPlayerIds?.includes(opp.id));
-                  
+                  const isOppRevealed =
+                    isGlobalHandsRevealed || Boolean(state.revealedPlayerIds?.includes(opp.id));
                   let actionLabel = "";
                   let canClick = false;
-                  
+
                   if (targetingCardId && isActiveTurn && !opp.isEliminated && !isSpectator) {
                     actionLabel = "Usar Efeito";
                     canClick = true;
                   }
 
                   return (
-                    <OpponentView 
-                      key={opp.id} 
-                      player={opp} 
+                    <OpponentView
+                      key={opp.id}
+                      player={opp}
                       isActiveTurn={isOppTurn}
                       actionLabel={actionLabel}
                       onActionClick={canClick ? () => handleOpponentClick(opp.id) : undefined}
@@ -615,666 +290,155 @@ export function GameBoard({
             </div>
           </div>
 
-          {/* AREA 2: Mesa Central (Deck, Descarte, Info de Turno, Meus Objetos na Mesa) */}
+          {/* AREA 2: Mesa Central (Deck, Descarte e Meus Objetos) */}
           <div className="flex-1 w-full flex flex-col justify-between overflow-hidden relative min-h-0 bg-muted/5">
-            
-            {/* Topo da Mesa Central: Barra Minimalista com Turno e Fallback Mobile */}
-            <div className="w-full px-2.5 h-9 sm:h-10 flex items-center justify-between gap-1.5 shrink-0 z-10 border-b border-border/30 bg-card/20 backdrop-blur-xs">
-              {/* Status / Turn Indicator */}
-              <div className="flex-1 flex items-center justify-center overflow-hidden min-w-0">
-                <div className={`px-3 py-0.5 rounded-full border shadow-xs text-center flex items-center justify-center gap-1.5 max-w-full transition-all duration-300 ${
-                  isMyTurnActive
-                    ? "bg-primary/15 border-primary/60 shadow-md shadow-primary/25 ring-2 ring-primary/30"
-                    : isSpectator
-                    ? "bg-amber-500/10 border-amber-500/30"
-                    : "bg-background/95 backdrop-blur-md"
-                }`}>
-                  {isSpectator ? (
-                    <span className="text-amber-700 dark:text-amber-400 font-bold text-xs truncate flex items-center gap-1.5">
-                      <span className="inline-block w-2 h-2 rounded-full bg-amber-500 animate-ping" />
-                      <span>Modo Espectador 👁️</span>
-                    </span>
-                  ) : me?.isEliminated ? (
-                    <span className="text-muted-foreground font-black text-xs">Você foi eliminado 💀</span>
-                  ) : isPendingMyAction ? (
-                    <span className="text-destructive font-black animate-pulse text-xs leading-none truncate">
-                      {state.pendingAction?.type === 'CHOOSE_CARD_TO_DISCARD'
-                        ? "🚨 Descarte 1 carta"
-                        : "📜 Entregue 1 carta"}
-                    </span>
-                  ) : state.pendingAction ? (
-                    <span className="text-amber-600 dark:text-amber-400 font-bold text-xs animate-pulse truncate">
-                      Aguardando adversário...
-                    </span>
-                  ) : targetingCardId ? (
-                    <span className="text-primary font-black animate-pulse text-xs truncate">
-                      🎯 Escolha o oponente no topo!
-                    </span>
-                  ) : isMyExtraPlay ? (
-                    <span className="text-violet-600 dark:text-violet-400 font-black animate-pulse text-xs truncate flex items-center gap-1">
-                      <Sparkles className="w-3.5 h-3.5 shrink-0 animate-spin" />
-                      <span>Prompt Perfeito: Baixe um Objeto!</span>
-                    </span>
-                  ) : isActiveTurn ? (
-                    <span className="text-primary font-black animate-pulse text-xs sm:text-sm tracking-wide flex items-center gap-1.5">
-                      <span className="inline-block w-2 h-2 rounded-full bg-primary animate-ping shrink-0" />
-                      <span>Sua vez de jogar! ⚡</span>
-                    </span>
-                  ) : (
-                    <span className="text-muted-foreground text-xs font-semibold truncate">
-                      Vez de: {state.players[state.currentTurnPlayerId!]?.name || "..."}
-                    </span>
-                  )}
-                  {state.roomSettings?.turnTimerEnabled && remainingSeconds !== null && (
-                    <span
-                      className={cn(
-                        "shrink-0 ml-1.5 px-1.5 py-0.5 rounded-full font-mono text-[10px] font-bold border flex items-center gap-1",
-                        remainingSeconds <= 5
-                          ? "bg-red-500/20 text-red-600 dark:text-red-400 border-red-500/40 animate-pulse"
-                          : remainingSeconds <= 10
-                          ? "bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/30"
-                          : "bg-primary/10 text-primary border-primary/20"
-                      )}
-                      title={`Tempo restante: ${remainingSeconds}s`}
-                    >
-                      <Timer className="w-3 h-3 shrink-0" />
-                      <span>{remainingSeconds}s</span>
-                    </span>
-                  )}
+            <GameBoardMobileHeader
+              roomId={roomId}
+              isMyTurnActive={isMyTurnActive}
+              isActiveTurn={isActiveTurn}
+              isSpectator={isSpectator}
+              isEliminated={me?.isEliminated}
+              isPendingMyAction={isPendingMyAction}
+              isMyExtraPlay={Boolean(isMyExtraPlay)}
+              pendingAction={state.pendingAction}
+              targetingCardId={targetingCardId}
+              currentTurnPlayerName={state.players[state.currentTurnPlayerId || ""]?.name}
+              remainingSeconds={remainingSeconds}
+              roomSettings={state.roomSettings}
+              playersCount={Object.keys(state.players).length}
+              isFullscreenSupported={isFullscreenSupported}
+              isFullscreen={isFullscreen}
+              onToggleFullscreen={toggleFullscreen}
+              onOpenShareModal={() => setIsShareModalOpen(true)}
+              onOpenPlayersDrawer={() => setIsPlayersDrawerOpen(true)}
+              onOpenSettingsModal={() => setIsSettingsModalOpen(true)}
+              onOpenLeaderboard={() => setIsLeaderboardOpen(true)}
+              onOpenHelp={() => setIsHelpOpen(true)}
+            />
+
+            <DeckDiscardPiles
+              topDiscard={topDiscard}
+              deckCount={state.deck.length}
+              isActiveTurn={isActiveTurn}
+              isMyExtraPlay={Boolean(isMyExtraPlay)}
+              isTargeting={Boolean(targetingCardId)}
+              onDraw={onDraw}
+              onCancelTargeting={() => setTargetingCardId(null)}
+            />
+
+            <PlayerObjectsArea
+              objects={me?.objectArea || []}
+              onInspectCard={handleInspectCard}
+            />
+          </div>
+
+          {/* AREA 3: Minha Mão / Modo Espectador */}
+          <div
+            className={`min-h-[165px] max-h-[195px] w-full border-t bg-card flex flex-col shrink-0 shadow-[0_-4px_10px_-2px_rgba(0,0,0,0.08)] z-20 overflow-visible relative transition-all duration-300 ${
+              isMyTurnActive
+                ? "border-t-2 border-primary/70 shadow-[0_-8px_25px_-5px_rgba(var(--primary),0.3)]"
+                : ""
+            }`}
+          >
+            {onSendReaction && (
+              <div className="absolute -top-4.5 right-3 z-30">
+                <ReactionPicker onSendReaction={onSendReaction} />
+              </div>
+            )}
+
+            {isSpectator ? (
+              <div className="h-full flex flex-col items-center justify-center p-4 text-center space-y-1.5 select-none bg-muted/10">
+                <div className="w-8 h-8 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-600 dark:text-amber-400 flex items-center justify-center text-base">
+                  👁️
                 </div>
-
-                {/* Barra de Progresso do Cronômetro Anti-Stall */}
-                {state.roomSettings?.turnTimerEnabled && remainingSeconds !== null && (
-                  <div className="w-full h-1 bg-zinc-800/80 overflow-hidden shrink-0 mt-1 rounded-full">
-                    <div 
-                      className={cn(
-                        "h-full transition-all duration-200 ease-linear rounded-full",
-                        remainingSeconds > 10 ? "bg-primary" : remainingSeconds > 5 ? "bg-amber-500" : "bg-red-500 animate-pulse"
-                      )}
-                      style={{
-                        width: `${Math.min(100, Math.max(0, (remainingSeconds / (state.roomSettings.turnTimerDuration || 30)) * 100))}%`
-                      }}
-                    />
-                  </div>
-                )}
+                <h4 className="text-xs font-black uppercase tracking-wider text-foreground">
+                  Modo Espectador Ativo
+                </h4>
+                <p className="text-[11px] text-muted-foreground max-w-[320px]">
+                  Você está assistindo à rodada em tempo real. Assim que esta partida for concluída e
+                  reiniciada pelo líder, você receberá cartas e jogará normalmente!
+                </p>
               </div>
+            ) : (
+              <>
+                {isMyTurnActive && (
+                  <div className="pointer-events-none absolute inset-0 ring-4 ring-primary ring-inset animate-pulse z-30" />
+                )}
 
-              {/* Fallback de Botões Utilitários para Telas Mobile (lg:hidden) */}
-              <div className="lg:hidden flex items-center gap-1 shrink-0">
-                {roomId && (
-                  <div className="flex items-center gap-0.5 bg-zinc-900/90 px-2 py-0.5 rounded-full border border-zinc-700/80 shrink-0">
-                    <span className="font-mono font-black text-[11px] text-zinc-100 tracking-wider select-all">
-                      #{roomId}
-                    </span>
-                    <CopyRoomButton 
-                      roomId={roomId} 
-                      variant="ghost" 
-                      size="sm"
-                      iconOnly
-                      className="h-6 w-6 p-0 text-muted-foreground hover:text-foreground shrink-0 cursor-pointer" 
-                    />
-                  </div>
-                )}
-                {roomId && (
-                  <button 
-                    type="button"
-                    onClick={() => setIsShareModalOpen(true)}
-                    className="shrink-0 text-primary hover:text-primary/80 h-7 w-7 rounded-full hover:bg-muted/80 flex items-center justify-center transition-colors cursor-pointer"
-                    title="Compartilhar com QR Code"
-                    aria-label="Compartilhar com QR Code"
-                  >
-                    <QrCode className="w-3.5 h-3.5" />
-                  </button>
-                )}
-                <button 
-                  type="button"
-                  onClick={() => setIsPlayersDrawerOpen(true)}
-                  className="relative shrink-0 text-muted-foreground hover:text-foreground h-7 w-7 rounded-full hover:bg-muted/80 flex items-center justify-center transition-colors cursor-pointer"
-                  title="Jogadores na sala"
-                  aria-label="Jogadores na sala"
-                >
-                  <Users className="w-4.5 h-4.5 shrink-0" />
-                  <span className="absolute -top-0.5 -right-0.5 bg-primary text-primary-foreground text-[8px] font-black w-3.5 h-3.5 rounded-full flex items-center justify-center">
-                    {Object.keys(state.players).length}
-                  </span>
-                </button>
-                <button 
-                  type="button"
-                  onClick={() => setIsSettingsModalOpen(true)}
-                  className="shrink-0 text-muted-foreground hover:text-foreground h-7 w-7 rounded-full hover:bg-muted/80 flex items-center justify-center transition-colors cursor-pointer"
-                  title="Configurações da sala"
-                  aria-label="Configurações da sala"
-                >
-                  <Settings className="w-3.5 h-3.5" />
-                </button>
-                <button 
-                  type="button"
-                  onClick={() => setIsLeaderboardOpen(true)}
-                  className="shrink-0 text-amber-500 hover:text-amber-400 h-7 w-7 rounded-full hover:bg-muted/80 flex items-center justify-center transition-colors cursor-pointer"
-                  title="Ranking de vitórias"
-                  aria-label="Ranking de vitórias"
-                >
-                  <Trophy className="w-3.5 h-3.5" />
-                </button>
-                <button 
-                  type="button"
-                  onClick={() => setIsHelpOpen(true)}
-                  className="shrink-0 text-muted-foreground hover:text-foreground h-7 w-7 rounded-full hover:bg-muted/80 flex items-center justify-center transition-colors cursor-pointer"
-                  title="Como jogar"
-                  aria-label="Como jogar"
-                >
-                  <HelpCircle className="w-3.5 h-3.5" />
-                </button>
-                {isFullscreenSupported && (
-                  <button 
-                    type="button"
-                    onClick={toggleFullscreen}
-                    className="shrink-0 text-muted-foreground hover:text-foreground h-7 w-7 rounded-full hover:bg-muted/80 flex items-center justify-center transition-colors cursor-pointer"
-                    title={isFullscreen ? "Sair da tela cheia" : "Tela cheia"}
-                    aria-label={isFullscreen ? "Sair da tela cheia" : "Tela cheia"}
-                  >
-                    {isFullscreen ? <Minimize className="w-3.5 h-3.5" /> : <Maximize className="w-3.5 h-3.5" />}
-                  </button>
-                )}
-              </div>
-            </div>
-
-            {/* Pilhas Centrais (Deck e Descarte) */}
-            <div className="flex-1 flex flex-col items-center justify-center gap-2.5 py-1 shrink-0 min-h-0">
-              <div className="flex gap-8 sm:gap-12 items-center justify-center">
-                {/* Pilha de Descarte (Miniatura) */}
-                <div className="flex flex-col items-center gap-1.5">
-                  <span className="text-[9.5px] font-bold text-muted-foreground uppercase tracking-widest bg-muted px-2 py-0.5 rounded-full">
-                    Descarte
-                  </span>
-                  <div className="h-[105px] sm:h-[115px] flex items-center justify-center">
-                    {topDiscard ? (
-                      <div className="animate-in zoom-in-90 duration-200">
-                        <Card card={topDiscard} size="small" />
-                      </div>
-                    ) : (
-                      <div className="w-[76px] sm:w-[84px] aspect-[182/252] border-2 border-dashed border-border rounded-xl flex items-center justify-center opacity-40 bg-muted">
-                        <span className="text-[8px] text-muted-foreground">Vazio</span>
-                      </div>
+                {isMyExtraPlay && (
+                  <div className="w-full bg-primary/15 border-b border-primary/30 text-foreground text-xs font-semibold py-1.5 px-3 flex items-center justify-between gap-2 animate-in fade-in shrink-0">
+                    <div className="flex items-center gap-1.5 truncate">
+                      <Sparkles className="w-3.5 h-3.5 text-primary shrink-0 animate-pulse" />
+                      <span className="text-[11px] truncate">
+                        <strong>Prompt Perfeito:</strong> Baixe o novo objeto!
+                      </span>
+                    </div>
+                    {onSkipExtraPlay && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-6 px-2 text-[10px] font-bold border-primary text-primary hover:bg-primary hover:text-primary-foreground shrink-0 shadow-xs"
+                        onClick={onSkipExtraPlay}
+                      >
+                        Pular
+                      </Button>
                     )}
                   </div>
-                </div>
+                )}
 
-                {/* Deck Principal */}
-                <div className="flex flex-col items-center gap-1.5">
-                  <span className="text-[9.5px] font-black text-primary uppercase tracking-widest bg-primary/10 px-2.5 py-0.5 rounded-full">
-                    Deck ({state.deck.length})
-                  </span>
-                  <div className="h-[135px] sm:h-[145px] flex items-center justify-center">
-                    <div 
-                      className={`transition-transform duration-300 ${
-                        isActiveTurn && !isMyExtraPlay
-                          ? 'hover:-translate-y-2 cursor-pointer drop-shadow-md ring-4 ring-primary/50 ring-offset-2 ring-offset-background rounded-xl scale-105'
-                          : 'opacity-50 cursor-not-allowed grayscale'
-                      }`}
-                      onClick={() => isActiveTurn && !isMyExtraPlay && onDraw()}
-                    >
-                      {state.deck.length > 0 ? (
-                        <Card /> // Verso
-                      ) : (
-                        <div className="w-24 sm:w-28 aspect-[182/252] border-2 border-dashed border-border rounded-xl flex items-center justify-center opacity-50 bg-muted">
-                          <span className="text-[9px] text-muted-foreground uppercase tracking-widest">Vazio</span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </div>
-              
-              {/* Controles Extras (Targeting) */}
-              <div className="h-7 flex items-center justify-center">
-                {targetingCardId && (
-                  <div className="flex items-center gap-2">
-                    <Button variant="outline" size="sm" onClick={cancelTargeting} className="h-7 text-xs font-bold border-destructive text-destructive hover:bg-destructive hover:text-destructive-foreground cursor-pointer">
-                      Cancelar Escolha
-                    </Button>
+                {isMyHandRevealed && !isMyExtraPlay && (
+                  <div className="w-full bg-amber-500/10 border-b border-amber-500/30 text-amber-700 dark:text-amber-400 text-[10.5px] font-semibold py-0.5 px-3 flex items-center justify-center gap-1.5 shrink-0">
+                    <Eye className="w-3 h-3 shrink-0" />
+                    <span className="truncate">Sua mão está visível para todos os jogadores!</span>
                   </div>
                 )}
-              </div>
-            </div>
 
-            {/* Minha Área de Objetos na Mesa (MAIOR, MAIS ALTA E CONFORTÁVEL) */}
-            <div className="h-[210px] sm:h-[230px] border-t bg-card/40 flex flex-col p-2.5 shrink-0 shadow-inner">
-              <div className="flex items-center justify-between px-1 mb-1.5 shrink-0">
-                <span className="text-[11px] font-black text-foreground uppercase tracking-widest flex items-center gap-1.5">
-                  Meus Objetos na Mesa ({me.objectArea.length}/5)
-                </span>
-                {me.objectArea.length > 0 && (
-                  <span className="text-[9.5px] text-muted-foreground font-semibold flex items-center gap-1">
-                    <Eye className="w-3 h-3 text-primary" /> Toque para inspecionar
-                  </span>
-                )}
-              </div>
-
-              <div className="flex gap-2.5 overflow-x-auto px-1 pb-1 pt-0.5 h-full items-center scrollbar-thin">
-                {me.objectArea.length === 0 ? (
-                  <span className="text-xs text-muted-foreground italic w-full text-center py-6">
-                    Nenhum objeto baixado na mesa ainda
-                  </span>
-                ) : (
-                  me.objectArea.map(card => (
-                    <div 
-                      key={card.id} 
-                      className="shrink-0 cursor-pointer hover:scale-105 active:scale-95 transition-transform"
-                      onClick={() => handleInspectCard(card)}
-                      title={`Clique para inspecionar: ${card.name}`}
-                    >
-                      <Card card={card} size="normal" />
-                    </div>
-                  ))
-                )}
-              </div>
-            </div>
-
+                <PlayerHand
+                  hand={me?.hand || []}
+                  isActiveTurn={isActiveTurn || isMyExtraPlay}
+                  onCardClick={handleInspectCard}
+                />
+              </>
+            )}
           </div>
-
-        {/* AREA 3: Minha Mão / Modo Espectador */}
-        <div className={`min-h-[165px] max-h-[195px] w-full border-t bg-card flex flex-col shrink-0 shadow-[0_-4px_10px_-2px_rgba(0,0,0,0.08)] z-20 overflow-visible relative transition-all duration-300 ${
-          isMyTurnActive
-            ? "border-t-2 border-primary/70 shadow-[0_-8px_25px_-5px_rgba(var(--primary),0.3)]"
-            : ""
-        }`}>
-          {/* Seletor de Reações Rápidas Flutuante */}
-          {onSendReaction && (
-            <div className="absolute -top-4.5 right-3 z-30">
-              <ReactionPicker onSendReaction={onSendReaction} />
-            </div>
-          )}
-          {isSpectator ? (
-            <div className="h-full flex flex-col items-center justify-center p-4 text-center space-y-1.5 select-none bg-muted/10">
-              <div className="w-8 h-8 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-600 dark:text-amber-400 flex items-center justify-center text-base">
-                👁️
-              </div>
-              <h4 className="text-xs font-black uppercase tracking-wider text-foreground">
-                Modo Espectador Ativo
-              </h4>
-              <p className="text-[11px] text-muted-foreground max-w-[320px]">
-                Você está assistindo à rodada em tempo real. Assim que esta partida for concluída e reiniciada pelo líder, você receberá cartas e jogará normalmente!
-              </p>
-            </div>
-          ) : (
-            <>
-              {/* Luminous ring pulsante no container da mão quando for a vez do jogador */}
-              {isMyTurnActive && (
-                <div className="pointer-events-none absolute inset-0 ring-4 ring-primary ring-inset animate-pulse z-30" />
-              )}
-
-              {/* Banner de Jogada Extra do Prompt Perfeito */}
-              {isMyExtraPlay && (
-                <div className="w-full bg-primary/15 border-b border-primary/30 text-foreground text-xs font-semibold py-1.5 px-3 flex items-center justify-between gap-2 animate-in fade-in shrink-0">
-                  <div className="flex items-center gap-1.5 truncate">
-                    <Sparkles className="w-3.5 h-3.5 text-primary shrink-0 animate-pulse" />
-                    <span className="text-[11px] truncate">
-                      <strong>Prompt Perfeito:</strong> Baixe o novo objeto!
-                    </span>
-                  </div>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="h-6 px-2 text-[10px] font-bold border-primary text-primary hover:bg-primary hover:text-primary-foreground shrink-0 shadow-xs"
-                    onClick={onSkipExtraPlay}
-                  >
-                    Pular
-                  </Button>
-                </div>
-              )}
-
-              {isMyHandRevealed && !isMyExtraPlay && (
-                <div className="w-full bg-amber-500/10 border-b border-amber-500/30 text-amber-700 dark:text-amber-400 text-[10.5px] font-semibold py-0.5 px-3 flex items-center justify-center gap-1.5 shrink-0">
-                  <Eye className="w-3 h-3 shrink-0" />
-                  <span className="truncate">
-                    Sua mão está visível para todos os jogadores!
-                  </span>
-                </div>
-              )}
-              <PlayerHand 
-                hand={me.hand} 
-                isActiveTurn={isActiveTurn || isMyExtraPlay}
-                onCardClick={handleInspectCard}
-              />
-            </>
-          )}
         </div>
+
+        {/* FLANCO DIREITO DESKTOP */}
+        <GameBoardRightFlank
+          playersCount={Object.keys(state.players).length}
+          roomSettings={state.roomSettings}
+          isFullscreenSupported={isFullscreenSupported}
+          isFullscreen={isFullscreen}
+          onToggleFullscreen={toggleFullscreen}
+          onOpenLeaderboard={() => setIsLeaderboardOpen(true)}
+          onOpenPlayersDrawer={() => setIsPlayersDrawerOpen(true)}
+          onOpenHelp={() => setIsHelpOpen(true)}
+          onOpenSettings={() => setIsSettingsModalOpen(true)}
+          onLeaveRoom={() => router.push("/")}
+        />
       </div>
 
-      {/* ========================================================= */}
-      {/* FLANCO DIREITO (Desktop: hidden lg:flex) */}
-      {/* ========================================================= */}
-      <aside className="hidden lg:flex flex-col w-[220px] xl:w-[240px] p-3.5 py-4 shrink-0 justify-between gap-3 select-none">
-        <div className="space-y-2.5 shrink-0">
-          <div className="px-1 pb-1">
-            <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-400">
-              Menu da Partida
-            </span>
-          </div>
-
-          {/* Botão Ranking */}
-          <button
-            type="button"
-            onClick={() => setIsLeaderboardOpen(true)}
-            className="w-full flex items-center gap-3 p-3 rounded-2xl bg-zinc-900/60 hover:bg-zinc-800/80 active:scale-[0.98] border border-zinc-800/80 hover:border-amber-500/50 text-left transition-all cursor-pointer shadow-md group"
-          >
-            <div className="w-9 h-9 rounded-xl bg-amber-500/15 text-amber-500 flex items-center justify-center shrink-0 border border-amber-500/30 group-hover:scale-105 transition-transform">
-              <Trophy className="w-4 h-4" />
-            </div>
-            <div className="min-w-0">
-              <span className="block text-xs font-black text-zinc-200 tracking-tight group-hover:text-amber-400 transition-colors">
-                Ranking
-              </span>
-              <span className="block text-[10px] text-zinc-400 truncate">
-                Placar e vitórias
-              </span>
-            </div>
-          </button>
-
-          {/* Botão Jogadores */}
-          <button
-            type="button"
-            onClick={() => setIsPlayersDrawerOpen(true)}
-            className="w-full flex items-center gap-3 p-3 rounded-2xl bg-zinc-900/60 hover:bg-zinc-800/80 active:scale-[0.98] border border-zinc-800/80 hover:border-primary/50 text-left transition-all cursor-pointer shadow-md group"
-          >
-            <div className="relative w-9 h-9 rounded-xl bg-primary/15 text-primary flex items-center justify-center shrink-0 border border-primary/30 group-hover:scale-105 transition-transform">
-              <Users className="w-5 h-5 shrink-0" />
-              <span className="absolute -top-1 -right-1 bg-primary text-primary-foreground text-[8px] font-black w-4 h-4 rounded-full flex items-center justify-center shadow-xs">
-                {Object.keys(state.players).length}
-              </span>
-            </div>
-            <div className="min-w-0">
-              <span className="block text-xs font-black text-zinc-200 tracking-tight group-hover:text-primary transition-colors">
-                Jogadores
-              </span>
-              <span className="block text-[10px] text-zinc-400 truncate">
-                {Object.keys(state.players).length} participante(s)
-              </span>
-            </div>
-          </button>
-
-          {/* Botão Como Jogar */}
-          <button
-            type="button"
-            onClick={() => setIsHelpOpen(true)}
-            className="w-full flex items-center gap-3 p-3 rounded-2xl bg-zinc-900/60 hover:bg-zinc-800/80 active:scale-[0.98] border border-zinc-800/80 hover:border-indigo-500/50 text-left transition-all cursor-pointer shadow-md group"
-          >
-            <div className="w-9 h-9 rounded-xl bg-indigo-500/15 text-indigo-400 flex items-center justify-center shrink-0 border border-indigo-500/30 group-hover:scale-105 transition-transform">
-              <HelpCircle className="w-4 h-4" />
-            </div>
-            <div className="min-w-0">
-              <span className="block text-xs font-black text-zinc-200 tracking-tight group-hover:text-indigo-400 transition-colors">
-                Como Jogar
-              </span>
-              <span className="block text-[10px] text-zinc-400 truncate">
-                Regras e objetivos
-              </span>
-            </div>
-          </button>
-
-          {/* Botão Configurações */}
-          <button
-            type="button"
-            onClick={() => setIsSettingsModalOpen(true)}
-            className="w-full flex items-center gap-3 p-3 rounded-2xl bg-zinc-900/60 hover:bg-zinc-800/80 active:scale-[0.98] border border-zinc-800/80 hover:border-primary/50 text-left transition-all cursor-pointer shadow-md group"
-          >
-            <div className="w-9 h-9 rounded-xl bg-zinc-700/20 text-zinc-300 flex items-center justify-center shrink-0 border border-zinc-700/40 group-hover:scale-105 transition-transform">
-              <Settings className="w-4 h-4" />
-            </div>
-            <div className="min-w-0">
-              <span className="block text-xs font-black text-zinc-200 tracking-tight group-hover:text-primary transition-colors">
-                Configurações
-              </span>
-              <span className="block text-[10px] text-zinc-400 truncate">
-                {state.roomSettings?.turnTimerEnabled
-                  ? `Anti-Stall: ${state.roomSettings.turnTimerDuration}s`
-                  : "Anti-Stall e regras"}
-              </span>
-            </div>
-          </button>
-
-          {/* Botão Tela Cheia */}
-          {isFullscreenSupported && (
-            <button
-              type="button"
-              onClick={toggleFullscreen}
-              className="w-full flex items-center gap-3 p-3 rounded-2xl bg-zinc-900/60 hover:bg-zinc-800/80 active:scale-[0.98] border border-zinc-800/80 hover:border-zinc-500/50 text-left transition-all cursor-pointer shadow-md group"
-            >
-              <div className="w-9 h-9 rounded-xl bg-zinc-700/20 text-zinc-300 flex items-center justify-center shrink-0 border border-zinc-700/40 group-hover:scale-105 transition-transform">
-                {isFullscreen ? <Minimize className="w-4 h-4" /> : <Maximize className="w-4 h-4" />}
-              </div>
-              <div className="min-w-0">
-                <span className="block text-xs font-black text-zinc-200 tracking-tight group-hover:text-zinc-100 transition-colors">
-                  {isFullscreen ? "Sair da Tela Cheia" : "Tela Cheia"}
-                </span>
-                <span className="block text-[10px] text-zinc-400 truncate">
-                  {isFullscreen ? "Reduzir janela" : "Modo imersivo PWA"}
-                </span>
-              </div>
-            </button>
-          )}
-        </div>
-
-        {/* Rodapé do Flanco Direito com Botão Sair */}
-        <div className="pt-3 border-t border-zinc-800/80 mt-auto">
-          <button
-            type="button"
-            onClick={() => router.push("/")}
-            className="w-full flex items-center justify-center gap-2 p-2.5 rounded-xl bg-zinc-900/40 hover:bg-red-500/10 hover:text-red-400 hover:border-red-500/30 text-zinc-400 border border-zinc-800/60 text-xs font-bold transition-all cursor-pointer"
-          >
-            <LogOut className="w-3.5 h-3.5" />
-            <span>Sair da Sala</span>
-          </button>
-        </div>
-      </aside>
-
-      </div>
-
-      {/* MODAL BLOQUEADOR DE AÇÃO PENDENTE (Phishing / LI E ACEITO!) */}
+      {/* MODAL BLOQUEADOR DE AÇÃO PENDENTE */}
       {isPendingMyAction && state.pendingAction && (
-        <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-200">
-          <div className="bg-card border-2 border-primary/40 text-card-foreground p-6 rounded-2xl max-w-lg w-full shadow-2xl relative animate-in zoom-in-95 duration-200 flex flex-col items-center text-center">
-            <div className="mb-4">
-              <div className="inline-flex p-3 rounded-full bg-primary/10 text-primary mb-3">
-                {state.pendingAction.type === 'CHOOSE_CARD_TO_DISCARD' ? (
-                  <AlertTriangle className="w-8 h-8 text-destructive animate-bounce" />
-                ) : (
-                  <FileText className="w-8 h-8 text-primary animate-pulse" />
-                )}
-              </div>
-              <h3 className="text-xl font-black text-foreground tracking-tight mb-1">
-                {state.pendingAction.type === 'CHOOSE_CARD_TO_DISCARD'
-                  ? '🚨 Alerta de Phishing!'
-                  : '📜 LI E ACEITO!'}
-              </h3>
-              <p className="text-sm text-muted-foreground max-w-sm mx-auto">
-                {state.pendingAction.type === 'CHOOSE_CARD_TO_DISCARD' ? (
-                  <>Escolha <strong>1 carta</strong> da sua mão para descartar.</>
-                ) : (
-                  <>
-                    Escolha <strong>1 carta</strong> da sua mão para entregar a{" "}
-                    <strong className="text-primary">
-                      {state.players[state.pendingAction.initiatorPlayerId]?.name || "adversário"}
-                    </strong>.
-                  </>
-                )}
-              </p>
-            </div>
-
-            <div className="w-full max-h-[50vh] overflow-y-auto p-3 flex flex-wrap gap-3 justify-center items-center rounded-xl bg-muted/20 border">
-              {me.hand.map((card) => (
-                <div
-                  key={card.id}
-                  className="cursor-pointer transition-transform hover:scale-105 active:scale-95 shrink-0"
-                  onClick={() => handleResolvePending(card.id)}
-                >
-                  <Card card={card} size={me.hand.length > 4 ? "small" : "normal"} />
-                </div>
-              ))}
-            </div>
-
-            <span className="text-[11px] text-muted-foreground mt-4 animate-pulse">
-              Clique em uma carta acima para confirmar sua escolha
-            </span>
-          </div>
-        </div>
+        <PendingActionModal
+          pendingAction={state.pendingAction}
+          hand={me?.hand || []}
+          initiatorName={state.players[state.pendingAction.initiatorPlayerId]?.name}
+          onResolve={handleResolvePending}
+        />
       )}
 
-      {/* MODAL DE SELEÇÃO DE ALVO */}
-      {targetingCardId && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
-          <div className="bg-card border text-card-foreground p-5 rounded-2xl max-w-sm w-full shadow-2xl relative animate-in zoom-in-95 duration-200">
-            <button 
-              onClick={cancelTargeting}
-              className="absolute top-4 right-4 text-muted-foreground hover:text-foreground"
-            >
-              <X className="w-5 h-5" />
-            </button>
-            <h3 className="text-lg font-extrabold text-primary uppercase tracking-wider mb-1 flex items-center gap-2">
-              🎯 Selecionar Alvo
-            </h3>
-            <p className="text-xs text-muted-foreground mb-4">
-              Escolha um adversário para o efeito <strong>{me.hand.find(c => c.id === targetingCardId)?.name}</strong>:
-            </p>
-
-            <div className="space-y-2 max-h-[60vh] overflow-y-auto pr-1">
-              {opponents.filter(o => !o.isEliminated).length === 0 ? (
-                <p className="text-xs text-muted-foreground italic text-center py-4">Nenhum oponente disponível.</p>
-              ) : (
-                opponents.filter(o => !o.isEliminated).map(opp => (
-                  <button
-                    key={opp.id}
-                    onClick={() => handleOpponentClick(opp.id)}
-                    className="w-full flex items-center justify-between p-3 rounded-xl border bg-muted/40 hover:bg-primary/10 hover:border-primary transition-all text-left group"
-                  >
-                    <div className="flex items-center gap-3 overflow-hidden">
-                      <UserCircle2 className="w-6 h-6 text-primary group-hover:scale-110 transition-transform shrink-0" />
-                      <div className="overflow-hidden">
-                        <span className="font-bold text-sm text-foreground block truncate">{opp.name}</span>
-                        <span className="text-[11px] text-muted-foreground">
-                          {opp.hand.length} carta(s) na mão • {opp.objectArea.length}/5 objeto(s)
-                        </span>
-                      </div>
-                    </div>
-                    <span className="text-xs font-bold text-primary shrink-0 ml-2 group-hover:translate-x-0.5 transition-transform">
-                      Escolher →
-                    </span>
-                  </button>
-                ))
-              )}
-            </div>
-
-            <Button variant="outline" onClick={cancelTargeting} className="w-full mt-4">
-              Cancelar
-            </Button>
-          </div>
-        </div>
-      )}
-
-      {/* MODAL COMO JOGAR */}
-      {isHelpOpen && (
-        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
-          <div className="bg-card border text-card-foreground p-6 rounded-2xl max-w-sm w-full shadow-2xl relative animate-in zoom-in-95 duration-200">
-            <button 
-              onClick={() => setIsHelpOpen(false)}
-              className="absolute top-4 right-4 text-muted-foreground hover:text-foreground"
-            >
-              <X className="w-5 h-5" />
-            </button>
-            <h3 className="text-xl font-black text-primary uppercase tracking-wider mb-4 flex items-center gap-2">
-              <HelpCircle className="w-6 h-6" />
-              Como Jogar
-            </h3>
-            
-            <div className="space-y-4 text-sm">
-              <div>
-                <strong className="text-foreground block mb-1">1. Objetivo Principal</strong>
-                <p className="text-muted-foreground leading-snug">
-                  Seja o primeiro a baixar <span className="text-primary font-bold">5 categorias diferentes</span> de objetos na sua área da mesa.
-                </p>
-              </div>
-              
-              <div>
-                <strong className="text-foreground block mb-1">2. No Seu Turno</strong>
-                <p className="text-muted-foreground leading-snug">
-                  Você pode escolher uma ação: comprar uma carta do deck principal ou jogar (baixar um objeto novo na mesa ou ativar um efeito da sua mão).
-                </p>
-              </div>
-              
-              <div>
-                <strong className="text-foreground block mb-1">3. Coringas Mágicos</strong>
-                <p className="text-muted-foreground leading-snug">
-                  As cartas Coringas valem por <span className="font-bold underline">qualquer</span> categoria que você ainda não possua na sua mesa, ajudando muito no combo final.
-                </p>
-              </div>
-            </div>
-
-            <Button onClick={() => setIsHelpOpen(false)} className="w-full mt-6">Entendi!</Button>
-          </div>
-        </div>
-      )}
-
-      {/* MODAL DE INSPEÇÃO DA MESA DO OPONENTE */}
-      {inspectingPlayer && (
-        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
-          <div className="bg-card border-2 border-border text-card-foreground p-6 rounded-3xl max-w-xl w-full shadow-2xl relative animate-in zoom-in-95 duration-200 flex flex-col">
-            <button 
-              onClick={() => setInspectingPlayerId(null)}
-              className="absolute top-4 right-4 text-muted-foreground hover:text-foreground p-1 rounded-full hover:bg-muted transition-colors"
-            >
-              <X className="w-5 h-5" />
-            </button>
-
-            <div className="flex items-center gap-2.5 mb-4">
-              <UserCircle2 className="w-7 h-7 text-primary" />
-              <div>
-                <h3 className="text-lg font-black text-foreground">
-                  Mesa de {inspectingPlayer.name}
-                </h3>
-                <p className="text-xs text-muted-foreground">
-                  {inspectingPlayer.objectArea.length}/5 objeto(s) baixado(s) • {inspectingPlayer.hand.length} carta(s) na mão
-                </p>
-              </div>
-            </div>
-
-            <div className="w-full max-h-[60vh] overflow-y-auto p-4 flex flex-wrap gap-4 justify-center items-center rounded-2xl bg-muted/20 border">
-              {inspectingPlayer.objectArea.length === 0 ? (
-                <p className="text-sm text-muted-foreground italic py-8 text-center">
-                  Este jogador ainda não baixou nenhum objeto na mesa.
-                </p>
-              ) : (
-                inspectingPlayer.objectArea.map((card) => (
-                  <div 
-                    key={card.id} 
-                    className="shrink-0 animate-in zoom-in-95 cursor-pointer hover:scale-105 active:scale-95 transition-transform"
-                    onClick={() => setPreviewCard(card)}
-                    title={`Toque para ver detalhes de ${card.name}`}
-                  >
-                    <Card card={card} size="normal" />
-                  </div>
-                ))
-              )}
-            </div>
-
-            <Button onClick={() => setInspectingPlayerId(null)} className="w-full mt-5 font-bold">
-              Fechar
-            </Button>
-          </div>
-        </div>
-      )}
-
-      {/* MODAL DE PRÉ-VISUALIZAÇÃO E INSPEÇÃO DA CARTA */}
+      {/* MODAL DE PRÉ-VISUALIZAÇÃO DE CARTA */}
       <CardPreviewModal
-        isOpen={Boolean(previewCard)}
         card={previewCard}
-        canPlay={canPlayPreviewCard}
-        canPlayReason={canPlayReason}
+        isOpen={Boolean(previewCard)}
         onClose={() => setPreviewCard(null)}
         onConfirmPlay={handleConfirmPlayFromPreview}
+        canPlay={canPlayPreviewCard}
+        canPlayReason={canPlayReason}
       />
 
-      {/* GAVETA DE JOGADORES DA SALA */}
+      {/* GAVETAS E MODAIS AUXILIARES */}
       <RoomPlayersDrawer
         isOpen={isPlayersDrawerOpen}
         onClose={() => setIsPlayersDrawerOpen(false)}
@@ -1282,36 +446,114 @@ export function GameBoard({
         myId={myId}
       />
 
-      {/* MODAL DE RANKINGS */}
       <LeaderboardModal
         isOpen={isLeaderboardOpen}
         onClose={() => setIsLeaderboardOpen(false)}
         roomLeaderboard={state.roomLeaderboard}
-        currentRoomId={roomId}
       />
 
-      {/* MODAL DE COMPARTILHAMENTO COM QR CODE */}
-      {roomId && (
-        <ShareRoomModal
-          isOpen={isShareModalOpen}
-          onClose={() => setIsShareModalOpen(false)}
-          roomId={roomId}
-        />
-      )}
+      <ShareRoomModal
+        isOpen={isShareModalOpen}
+        onClose={() => setIsShareModalOpen(false)}
+        roomId={roomId || ""}
+      />
 
-      {/* MODAL DE CONFIGURAÇÕES DA SALA */}
       <RoomSettingsModal
         isOpen={isSettingsModalOpen}
         onClose={() => setIsSettingsModalOpen(false)}
         settings={state.roomSettings}
         isLeader={state.creatorId === myId}
-        onUpdateSettings={(newSettings) => {
-          if (onUpdateSettings) {
-            onUpdateSettings(newSettings);
-          }
-        }}
+        onUpdateSettings={onUpdateSettings || (() => {})}
       />
 
+      {/* MODAL DE REGRAS ("COMO JOGAR") */}
+      {isHelpOpen && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 select-none">
+          <div className="bg-card text-card-foreground border p-5 rounded-2xl max-w-md w-full max-h-[85vh] overflow-y-auto space-y-4 shadow-xl animate-in zoom-in-95 duration-200">
+            <div className="flex items-center justify-between border-b pb-2">
+              <h3 className="font-black text-base flex items-center gap-2">Como Jogar Combo</h3>
+              <button
+                type="button"
+                onClick={() => setIsHelpOpen(false)}
+                className="text-muted-foreground hover:text-foreground cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="text-xs space-y-3 leading-relaxed text-muted-foreground">
+              <p>
+                <strong>Objetivo:</strong> Colete e baixe <strong>5 Cartas-Objeto</strong> de temas
+                diferentes ou Coringas na sua área para vencer a partida.
+              </p>
+              <div className="p-2.5 rounded-lg bg-primary/10 border border-primary/20 text-foreground font-medium">
+                <strong>No seu turno:</strong> Compre 1 carta do deck e jogue 1 carta da sua mão (baixe
+                um Objeto na sua mesa ou use um Efeito).
+              </div>
+              <p>
+                <strong>Cartas de Efeito:</strong> Descarte-as para aplicar regras instantâneas contra
+                adversários ou proteger seus objetos.
+              </p>
+              <p>
+                <strong>Cartas Coringa:</strong> Podem substituir qualquer um dos temas que faltam para
+                sua vitória!
+              </p>
+            </div>
+            <Button
+              className="w-full font-bold cursor-pointer"
+              size="sm"
+              onClick={() => setIsHelpOpen(false)}
+            >
+              Entendido
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* GAVETA DE INSPEÇÃO DE JOGADOR */}
+      {inspectingPlayer && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 select-none">
+          <div className="bg-card text-card-foreground border rounded-t-3xl sm:rounded-2xl max-w-md w-full max-h-[80vh] flex flex-col p-4 shadow-2xl animate-in slide-in-from-bottom-5 duration-200">
+            <div className="flex items-center justify-between pb-3 border-b mb-3">
+              <div>
+                <h3 className="font-black text-base">{inspectingPlayer.name}</h3>
+                <span className="text-[11px] text-muted-foreground">
+                  Objetos na Mesa ({inspectingPlayer.objectArea.length}/5)
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setInspectingPlayerId(null)}
+                className="text-muted-foreground hover:text-foreground cursor-pointer p-1"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto space-y-2 p-1">
+              {inspectingPlayer.objectArea.length === 0 ? (
+                <p className="text-xs text-muted-foreground text-center py-6">
+                  Nenhum objeto baixado por este jogador ainda.
+                </p>
+              ) : (
+                <div className="flex flex-wrap gap-2 justify-center">
+                  {inspectingPlayer.objectArea.map((c) => (
+                    <div
+                      key={c.id}
+                      onClick={() => setPreviewCard(c)}
+                      className="cursor-pointer hover:scale-105 transition-transform"
+                    >
+                      <CardPreviewModal
+                        card={previewCard}
+                        isOpen={Boolean(previewCard)}
+                        onClose={() => setPreviewCard(null)}
+                      />
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

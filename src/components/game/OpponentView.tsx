@@ -125,7 +125,7 @@ export function OpponentView({
         </div>
       )}
 
-      {/* Botões de Ação Dinâmicos (Trocar, Alvo de Efeito, etc) */}
+      {/* Botões de Ação Dinâmicos (Alvo de Efeito, etc) */}
       {actionLabel && onActionClick && !isDead && (
         <button 
           onClick={(e) => {
