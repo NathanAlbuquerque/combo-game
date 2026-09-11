@@ -1,5 +1,5 @@
 import type * as Party from "partykit/server";
-import { GameState, ClientMessage, ServerMessage, Card, Player, MatchStats, RoomSummary } from "../src/types/game";
+import { GameState, ClientMessage, ServerMessage, Card, Player, MatchStats, RoomSummary, PlayerRankEntry, LeaderboardData } from "../src/types/game";
 import { OBJECT_CARDS_DATA, EFFECTS_CARDS_DATA } from "../src/data/cards";
 
 function shuffleDeck<T>(array: T[]): T[] {
@@ -59,6 +59,9 @@ export default class MainServer implements Party.Server {
   private state: GameState;
   private createdAt: number = Date.now();
   private registryRooms: Map<string, RoomSummary> = new Map();
+  private globalLeaderboard: Map<string, PlayerRankEntry> = new Map();
+  private leaderboardLastResetAt: number = Date.now();
+  private matchRecorded: boolean = false;
 
   constructor(readonly room: Party.Room) {
     this.state = {
@@ -77,19 +80,54 @@ export default class MainServer implements Party.Server {
       revealedPlayerIds: [],
       revealedPlayerUntilTurn: {},
       stats: null,
+      roomLeaderboard: {},
     };
   }
 
   async onStart() {
     if (this.room.id === "global-registry") {
       try {
-        const saved = await this.room.storage.get<Record<string, RoomSummary>>("rooms");
-        if (saved) {
-          this.registryRooms = new Map(Object.entries(saved));
+        const savedRooms = await this.room.storage.get<Record<string, RoomSummary>>("rooms");
+        if (savedRooms) {
+          this.registryRooms = new Map(Object.entries(savedRooms));
+        }
+
+        const savedLeaderboard = await this.room.storage.get<{
+          ranks: Record<string, PlayerRankEntry>;
+          lastResetAt: number;
+        }>("global_leaderboard");
+
+        if (savedLeaderboard) {
+          this.leaderboardLastResetAt = savedLeaderboard.lastResetAt || Date.now();
+          this.globalLeaderboard = new Map(Object.entries(savedLeaderboard.ranks || {}));
+          this.checkDailyReset();
         }
       } catch (err) {
         console.warn("Aviso ao recuperar storage do global-registry:", err);
       }
+    }
+  }
+
+  private checkDailyReset(): boolean {
+    const now = Date.now();
+    const ONE_DAY_MS = 24 * 60 * 60 * 1000;
+    if (now - this.leaderboardLastResetAt >= ONE_DAY_MS) {
+      this.globalLeaderboard.clear();
+      this.leaderboardLastResetAt = now;
+      this.saveLeaderboard();
+      return true;
+    }
+    return false;
+  }
+
+  private async saveLeaderboard() {
+    try {
+      await this.room.storage.put("global_leaderboard", {
+        ranks: Object.fromEntries(this.globalLeaderboard),
+        lastResetAt: this.leaderboardLastResetAt,
+      });
+    } catch (e) {
+      console.warn("Aviso ao persistir global_leaderboard:", e);
     }
   }
 
@@ -105,7 +143,34 @@ export default class MainServer implements Party.Server {
     }
 
     if (this.room.id === "global-registry") {
+      const url = new URL(req.url);
+
       if (req.method === "GET") {
+        // Rota de Ranking Geral
+        if (url.searchParams.get("type") === "leaderboard" || url.pathname.endsWith("/leaderboard")) {
+          this.checkDailyReset();
+          const list = Array.from(this.globalLeaderboard.values());
+          list.sort((a, b) => {
+            if (b.wins !== a.wins) return b.wins - a.wins;
+            if (b.lastWinAt !== a.lastWinAt) return b.lastWinAt - a.lastWinAt;
+            return a.matchesPlayed - b.matchesPlayed;
+          });
+
+          const data: LeaderboardData = {
+            global: list.slice(0, 20),
+            lastResetAt: this.leaderboardLastResetAt,
+          };
+
+          return new Response(JSON.stringify(data), {
+            headers: {
+              "Content-Type": "application/json",
+              "Cache-Control": "no-store, max-age=0",
+              ...corsHeaders,
+            },
+          });
+        }
+
+        // Rota de Salas Públicas
         const now = Date.now();
         const activeRooms: RoomSummary[] = [];
 
@@ -135,10 +200,56 @@ export default class MainServer implements Party.Server {
       if (req.method === "POST") {
         try {
           const body = (await req.json()) as {
-            action: "update" | "delete";
+            action: "update" | "delete" | "record_match_result";
             roomId?: string;
             summary?: RoomSummary;
+            winnerName?: string;
+            participants?: string[];
           };
+
+          if (body.action === "record_match_result") {
+            this.checkDailyReset();
+            const participants = body.participants || [];
+            const winnerName = body.winnerName;
+
+            for (const pName of participants) {
+              const clean = pName.trim();
+              if (!clean) continue;
+              let entry = this.globalLeaderboard.get(clean);
+              if (!entry) {
+                entry = {
+                  name: clean,
+                  wins: 0,
+                  matchesPlayed: 0,
+                  lastWinAt: 0,
+                };
+                this.globalLeaderboard.set(clean, entry);
+              }
+              entry.matchesPlayed += 1;
+            }
+
+            if (winnerName) {
+              const cleanWinner = winnerName.trim();
+              let entry = this.globalLeaderboard.get(cleanWinner);
+              if (!entry) {
+                entry = {
+                  name: cleanWinner,
+                  wins: 0,
+                  matchesPlayed: 1,
+                  lastWinAt: 0,
+                };
+                this.globalLeaderboard.set(cleanWinner, entry);
+              }
+              entry.wins += 1;
+              entry.lastWinAt = Date.now();
+            }
+
+            await this.saveLeaderboard();
+
+            return new Response(JSON.stringify({ ok: true }), {
+              headers: { "Content-Type": "application/json", ...corsHeaders },
+            });
+          }
 
           if (body.action === "delete" || (body.summary && body.summary.playerCount <= 0)) {
             const targetId = body.roomId || body.summary?.id;
@@ -208,6 +319,76 @@ export default class MainServer implements Party.Server {
     } catch (err) {
       console.error("Erro ao notificar global-registry:", err);
     }
+  }
+
+  private recordMatchLeaderboard(winnerId: string | null) {
+    if (!this.state.roomLeaderboard) {
+      this.state.roomLeaderboard = {};
+    }
+
+    const participants: string[] = [];
+    const winnerPlayer = winnerId ? this.state.players[winnerId] : null;
+    const winnerName = winnerPlayer?.name ? winnerPlayer.name.trim() : null;
+
+    for (const pid of Object.keys(this.state.players)) {
+      const p = this.state.players[pid];
+      if (p && !p.isSpectating) {
+        const pName = p.name.trim() || "Jogador";
+        participants.push(pName);
+
+        if (!this.state.roomLeaderboard[pName]) {
+          this.state.roomLeaderboard[pName] = {
+            name: pName,
+            wins: 0,
+            matchesPlayed: 0,
+            lastWinAt: 0,
+          };
+        }
+        this.state.roomLeaderboard[pName].matchesPlayed += 1;
+      }
+    }
+
+    if (winnerName) {
+      if (!this.state.roomLeaderboard[winnerName]) {
+        this.state.roomLeaderboard[winnerName] = {
+          name: winnerName,
+          wins: 0,
+          matchesPlayed: 1,
+          lastWinAt: 0,
+        };
+      }
+      this.state.roomLeaderboard[winnerName].wins += 1;
+      this.state.roomLeaderboard[winnerName].lastWinAt = Date.now();
+    }
+
+    this.notifyGlobalLeaderboard(winnerName, participants);
+  }
+
+  private async notifyGlobalLeaderboard(winnerName: string | null, participants: string[]) {
+    if (this.room.id === "global-registry") return;
+    try {
+      const partyName = this.room.name || "main";
+      const registryStub = this.room.context?.parties?.[partyName]?.get("global-registry");
+      if (registryStub) {
+        await registryStub.fetch("", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: "record_match_result",
+            winnerName: winnerName || undefined,
+            participants,
+          }),
+        });
+      }
+    } catch (err) {
+      console.error("Erro ao notificar global-registry sobre resultado da partida:", err);
+    }
+  }
+
+  private handleMatchFinished() {
+    if (this.matchRecorded) return;
+    this.matchRecorded = true;
+    this.recordMatchLeaderboard(this.state.winnerId);
   }
 
   private addLog(message: string) {
@@ -301,6 +482,7 @@ export default class MainServer implements Party.Server {
 
   private startGame() {
     this.clearAutoStartTimer();
+    this.matchRecorded = false;
     if (this.state.status !== "lobby") return;
     const playerIds = Object.keys(this.state.players);
     if (playerIds.length < 2) return;
@@ -548,6 +730,7 @@ export default class MainServer implements Party.Server {
         this.state.stats.finishedAt = Date.now();
       }
       this.addLog(`🏆 ${this.state.players[lastActiveId].name} é o último sobrevivente e venceu o jogo!`);
+      this.handleMatchFinished();
       return true;
     }
     
@@ -557,6 +740,7 @@ export default class MainServer implements Party.Server {
         this.state.stats.finishedAt = Date.now();
       }
       this.addLog(`Empate catastrófico! Todos foram eliminados.`);
+      this.handleMatchFinished();
       return true;
     }
     
@@ -584,6 +768,7 @@ export default class MainServer implements Party.Server {
         this.state.stats.finishedAt = Date.now();
       }
       this.addLog(`🏆 ${p.name} fechou o Combo e venceu o jogo!`);
+      this.handleMatchFinished();
       return true;
     }
     return false;
@@ -1255,6 +1440,7 @@ export default class MainServer implements Party.Server {
           player.isSpectating = false;
         }
 
+        this.matchRecorded = false;
         this.checkAutoStartTimer();
         this.notifyRegistry();
         this.syncState();
@@ -1269,6 +1455,7 @@ export default class MainServer implements Party.Server {
   private syncState() {
     this.checkEliminations();
     if (this.state.status === "finished") {
+      this.handleMatchFinished();
       this.notifyRegistry();
     }
     this.broadcastSync();

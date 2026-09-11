@@ -5,9 +5,10 @@ import { Card } from "./Card";
 import { CardPreviewModal } from "./CardPreviewModal";
 import { CopyRoomButton } from "./CopyRoomButton";
 import { Button } from "@/components/ui/button";
-import { HelpCircle, X, Eye, UserCircle2, Sparkles, AlertTriangle, FileText, Users } from "lucide-react";
+import { HelpCircle, X, Eye, UserCircle2, Sparkles, AlertTriangle, FileText, Users, Trophy } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 import { RoomPlayersDrawer } from "./RoomPlayersDrawer";
+import { LeaderboardModal } from "./LeaderboardModal";
 
 function playTurnNotificationSound() {
   if (typeof window === "undefined") return;
@@ -96,6 +97,7 @@ export function GameBoard({
   const [isPlayersDrawerOpen, setIsPlayersDrawerOpen] = useState(false);
   const [inspectingPlayerId, setInspectingPlayerId] = useState<string | null>(null);
   const [previewCard, setPreviewCard] = useState<CardType | null>(null);
+  const [isLeaderboardOpen, setIsLeaderboardOpen] = useState(false);
 
   const me = state.players[myId];
   const isSpectator = Boolean(me?.isSpectating);
@@ -372,14 +374,26 @@ export function GameBoard({
                 </div>
               </div>
 
-              <button 
-                onClick={() => setIsHelpOpen(true)}
-                className="shrink-0 bg-card border rounded-full shadow-xs hover:bg-muted transition-colors text-muted-foreground hover:text-foreground h-7 w-7 flex items-center justify-center"
-                title="Como jogar"
-                aria-label="Como jogar"
-              >
-                <HelpCircle className="w-3.5 h-3.5" />
-              </button>
+              <div className="flex items-center gap-1.5 shrink-0">
+                <button 
+                  type="button"
+                  onClick={() => setIsLeaderboardOpen(true)}
+                  className="shrink-0 bg-card border rounded-full shadow-xs hover:bg-muted transition-colors text-amber-500 hover:text-amber-400 h-7 w-7 flex items-center justify-center cursor-pointer"
+                  title="Ranking de vitórias"
+                  aria-label="Ranking de vitórias"
+                >
+                  <Trophy className="w-3.5 h-3.5" />
+                </button>
+                <button 
+                  type="button"
+                  onClick={() => setIsHelpOpen(true)}
+                  className="shrink-0 bg-card border rounded-full shadow-xs hover:bg-muted transition-colors text-muted-foreground hover:text-foreground h-7 w-7 flex items-center justify-center cursor-pointer"
+                  title="Como jogar"
+                  aria-label="Como jogar"
+                >
+                  <HelpCircle className="w-3.5 h-3.5" />
+                </button>
+              </div>
             </div>
 
             {/* Action Log / Notificação de Mão Revelada */}
@@ -778,6 +792,14 @@ export function GameBoard({
         onClose={() => setIsPlayersDrawerOpen(false)}
         state={state}
         myId={myId}
+      />
+
+      {/* MODAL DE RANKINGS */}
+      <LeaderboardModal
+        isOpen={isLeaderboardOpen}
+        onClose={() => setIsLeaderboardOpen(false)}
+        roomLeaderboard={state.roomLeaderboard}
+        currentRoomId={roomId}
       />
 
       </div>

@@ -66,6 +66,18 @@ export type RoomSummary = {
   leaderName: string;
 };
 
+export type PlayerRankEntry = {
+  name: string;
+  wins: number;
+  matchesPlayed: number;
+  lastWinAt: number;
+};
+
+export type LeaderboardData = {
+  global: PlayerRankEntry[];
+  lastResetAt: number;
+};
+
 export interface GameState {
   status: 'lobby' | 'playing' | 'finished';
   players: Record<string, Player>;
@@ -84,6 +96,7 @@ export interface GameState {
   revealedPlayerIds?: string[]; // IDs de jogadores com mão revelada temporariamente (Senha Fraca Detectada)
   revealedPlayerUntilTurn?: Record<string, string>; // targetPlayerId -> activatorPlayerId
   stats?: MatchStats | null; // Estatísticas consolidadas da partida
+  roomLeaderboard?: Record<string, PlayerRankEntry>; // Ranking exclusivo desta sala
 }
 
 export type ClientMessage = 

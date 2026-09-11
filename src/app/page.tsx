@@ -4,8 +4,9 @@ import { useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { BookOpen } from "lucide-react";
+import { BookOpen, Trophy } from "lucide-react";
 import { PublicRoomsList } from "@/components/game/PublicRoomsList";
+import { LeaderboardModal } from "@/components/game/LeaderboardModal";
 
 function HomeContent() {
   const router = useRouter();
@@ -15,6 +16,7 @@ function HomeContent() {
   const [playerName, setPlayerName] = useState("");
   const [roomCode, setRoomCode] = useState(initialRoom);
   const [error, setError] = useState("");
+  const [isLeaderboardOpen, setIsLeaderboardOpen] = useState(false);
 
   const generateRoomCode = () => {
     const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
@@ -119,20 +121,35 @@ function HomeContent() {
                 <PublicRoomsList playerName={playerName} />
               </div>
 
-              <div className="pt-2 border-t">
+              <div className="pt-2 border-t grid grid-cols-2 gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setIsLeaderboardOpen(true)}
+                  className="w-full font-bold h-11 flex items-center justify-center gap-2 border-dashed hover:bg-muted/80 text-foreground cursor-pointer"
+                >
+                  <Trophy className="w-4 h-4 text-amber-500" />
+                  <span>Ranking</span>
+                </Button>
+
                 <Link href="/cartas" className="w-full block">
                   <Button
                     variant="outline"
                     className="w-full font-bold h-11 flex items-center justify-center gap-2 border-dashed hover:bg-muted/80 text-foreground cursor-pointer"
                   >
                     <BookOpen className="w-4 h-4 text-primary" />
-                    <span>📖 Ver Todas as Cartas</span>
+                    <span>Ver Cartas</span>
                   </Button>
                 </Link>
               </div>
             </div>
           </div>
         </main>
+
+        <LeaderboardModal
+          isOpen={isLeaderboardOpen}
+          onClose={() => setIsLeaderboardOpen(false)}
+        />
       </div>
     </div>
   );
