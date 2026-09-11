@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback, useMemo } from "react";
 import { Trophy, X, RefreshCw, Globe, Home, Medal, Flame } from "lucide-react";
 import { PlayerRankEntry, LeaderboardData } from "@/types/game";
 import { Button } from "@/components/ui/button";
+import { DEFAULT_PARTYKIT_HOST } from "@/constants";
 
 interface LeaderboardModalProps {
   isOpen: boolean;
@@ -57,7 +58,7 @@ export function LeaderboardModal({
     } catch {
       // Fallback para PartyKit direto
       try {
-        const host = process.env.NEXT_PUBLIC_PARTYKIT_HOST || "localhost:1999";
+        const host = process.env.NEXT_PUBLIC_PARTYKIT_HOST || DEFAULT_PARTYKIT_HOST;
         const protocol = host.startsWith("localhost") || host.startsWith("127.0.0.1") ? "http" : "https";
         const res = await fetch(`${protocol}://${host}/parties/main/global-registry?type=leaderboard`, {
           cache: "no-store",

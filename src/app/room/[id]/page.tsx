@@ -135,21 +135,44 @@ function RoomContent() {
 
   // TELA DE ERRO DE CONEXÃO
   if (!gameState && errorMsg) {
+    const isNameError = errorMsg.toLowerCase().includes("nome");
     return (
       <div className="flex flex-col items-center justify-center min-h-screen bg-zinc-950 text-white p-4 font-sans space-y-4">
-        <div className="p-4 bg-destructive/10 border border-destructive/30 rounded-2xl max-w-sm text-center space-y-3">
-          <p className="text-destructive font-bold text-sm">{errorMsg}</p>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => {
-              sessionStorage.removeItem(`${STORAGE_KEYS.PLAYER_ID_PREFIX}${roomId}`);
-              router.push("/");
-            }}
-            className="cursor-pointer font-bold text-xs"
-          >
-            Voltar ao Início
-          </Button>
+        <div className="p-6 bg-card text-card-foreground border border-destructive/30 rounded-3xl max-w-sm w-full text-center space-y-4 shadow-2xl animate-in zoom-in-95 duration-200">
+          <div className="w-12 h-12 rounded-full bg-destructive/15 text-destructive flex items-center justify-center mx-auto text-xl">
+            ⚠️
+          </div>
+          <div className="space-y-1">
+            <h2 className="text-base font-black text-foreground uppercase tracking-wide">
+              {isNameError ? "Nome Indisponível" : "Erro de Conexão"}
+            </h2>
+            <p className="text-xs text-muted-foreground leading-relaxed">{errorMsg}</p>
+          </div>
+          <div className="flex flex-col gap-2 pt-2">
+            <Button
+              variant="default"
+              size="sm"
+              onClick={() => {
+                setPlayerName("");
+                setInputName("");
+                setNameError(isNameError ? errorMsg : "");
+              }}
+              className="cursor-pointer font-black text-xs h-10 w-full"
+            >
+              {isNameError ? "Escolher Outro Nome" : "Tentar Novamente"}
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                sessionStorage.removeItem(`${STORAGE_KEYS.PLAYER_ID_PREFIX}${roomId}`);
+                router.push("/");
+              }}
+              className="cursor-pointer font-bold text-xs h-10 w-full"
+            >
+              Voltar ao Início
+            </Button>
+          </div>
         </div>
       </div>
     );

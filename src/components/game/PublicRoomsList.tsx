@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { RefreshCw, Users, Play } from "lucide-react";
 import { RoomSummary } from "@/types/game";
 import { Button } from "@/components/ui/button";
+import { DEFAULT_PARTYKIT_HOST } from "@/constants";
 
 interface PublicRoomsListProps {
   playerName?: string;
@@ -30,7 +31,7 @@ export function PublicRoomsList({ playerName = "" }: PublicRoomsListProps) {
     } catch {
       // Fallback para PartyKit direto se a API local falhar
       try {
-        const host = process.env.NEXT_PUBLIC_PARTYKIT_HOST || "localhost:1999";
+        const host = process.env.NEXT_PUBLIC_PARTYKIT_HOST || DEFAULT_PARTYKIT_HOST;
         const protocol = host.startsWith("localhost") || host.startsWith("127.0.0.1") ? "http" : "https";
         const res = await fetch(`${protocol}://${host}/parties/main/global-registry`, { cache: "no-store" });
         if (res.ok) {

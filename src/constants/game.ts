@@ -55,3 +55,9 @@ export const TURN_TIMER_OPTIONS = [
   { value: 45, label: "45s", desc: "Moderado ⏳" },
   { value: 60, label: "60s", desc: "Longo 🐢" },
 ] as const;
+
+// ==========================================
+// Host Padrão do Servidor PartyKit (Produção)
+// ==========================================
+export const DEFAULT_PARTYKIT_HOST = "combo.nathanalbuquerque.partykit.dev";
+

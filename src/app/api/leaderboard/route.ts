@@ -1,10 +1,11 @@
 import { NextResponse } from "next/server";
 import { LeaderboardData } from "@/types/game";
+import { DEFAULT_PARTYKIT_HOST } from "@/constants";
 
 export const dynamic = "force-dynamic";
 
 export async function GET() {
-  const host = process.env.NEXT_PUBLIC_PARTYKIT_HOST || "localhost:1999";
+  const host = process.env.NEXT_PUBLIC_PARTYKIT_HOST || DEFAULT_PARTYKIT_HOST;
   const protocol = host.startsWith("localhost") || host.startsWith("127.0.0.1") ? "http" : "https";
   const partyUrl = `${protocol}://${host}/parties/main/global-registry?type=leaderboard`;
 

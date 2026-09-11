@@ -672,6 +672,12 @@ export default class MainServer implements Party.Server {
       return;
     }
     console.log(`Conexão estabelecida: ${conn.id} na sala ${this.room.id}`);
+    conn.send(
+      JSON.stringify({
+        type: "sync",
+        state: this.state,
+      })
+    );
   }
 
   onClose(conn: Party.Connection) {
@@ -951,7 +957,7 @@ export default class MainServer implements Party.Server {
               type: "error",
               message: "Este nome já está em uso nesta sala. Escolha outro!",
             }));
-            sender.close(1008, "Name already in use");
+            sender.close(1008, "Este nome já está em uso nesta sala. Escolha outro!");
             return;
           }
 
@@ -982,7 +988,7 @@ export default class MainServer implements Party.Server {
             type: "error",
             message: "Este nome já está em uso nesta sala. Escolha outro!",
           }));
-          sender.close(1008, "Name already in use");
+          sender.close(1008, "Este nome já está em uso nesta sala. Escolha outro!");
           return;
         }
 
