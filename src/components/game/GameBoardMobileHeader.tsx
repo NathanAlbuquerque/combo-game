@@ -63,7 +63,7 @@ export function GameBoardMobileHeader({
   onOpenHelp,
 }: GameBoardMobileHeaderProps) {
   return (
-    <div className="w-full px-2.5 h-9 sm:h-10 flex items-center justify-between gap-1.5 shrink-0 z-10 border-b border-border/30 bg-card/20 backdrop-blur-xs select-none">
+    <div className="lg:hidden w-full px-2.5 h-9 sm:h-10 flex items-center justify-between gap-1.5 shrink-0 z-10 border-b border-border/30 bg-card/20 backdrop-blur-xs select-none">
       {/* Status / Turn Indicator */}
       <div className="flex-1 flex items-center justify-center overflow-hidden min-w-0">
         <div

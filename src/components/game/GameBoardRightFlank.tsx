@@ -10,6 +10,7 @@ import {
   LogOut,
 } from "lucide-react";
 import { RoomSettings } from "@/types/game";
+import { ReactionPicker } from "./ReactionPicker";
 
 interface GameBoardRightFlankProps {
   playersCount: number;
@@ -21,6 +22,7 @@ interface GameBoardRightFlankProps {
   onOpenPlayersDrawer: () => void;
   onOpenHelp: () => void;
   onOpenSettings: () => void;
+  onSendReaction?: (emoji: string) => void;
   onLeaveRoom: () => void;
 }
 
@@ -34,129 +36,99 @@ export function GameBoardRightFlank({
   onOpenPlayersDrawer,
   onOpenHelp,
   onOpenSettings,
+  onSendReaction,
   onLeaveRoom,
 }: GameBoardRightFlankProps) {
   return (
-    <aside className="hidden lg:flex flex-col w-[220px] xl:w-[240px] p-3.5 py-4 shrink-0 justify-between gap-3 select-none">
-      <div className="space-y-2.5 shrink-0">
-        <div className="px-1 pb-1">
-          <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-400">
-            Menu da Partida
-          </span>
-        </div>
-
-        {/* Botão Ranking */}
+    <aside className="hidden lg:flex flex-col w-16 xl:w-20 p-2.5 py-4 shrink-0 justify-between items-center select-none">
+      <div className="flex flex-col items-center gap-2.5 shrink-0">
+        {/* 🏆 Botão Ranking */}
         <button
           type="button"
           onClick={onOpenLeaderboard}
-          className="w-full flex items-center gap-3 p-3 rounded-2xl bg-zinc-900/60 hover:bg-zinc-800/80 active:scale-[0.98] border border-zinc-800/80 hover:border-amber-500/50 text-left transition-all cursor-pointer shadow-md group"
+          className="w-11 h-11 rounded-2xl bg-zinc-900/90 hover:bg-zinc-800 active:scale-95 border border-zinc-700/80 hover:border-amber-500/60 text-amber-400 hover:text-amber-300 flex items-center justify-center transition-all cursor-pointer shadow-md"
+          title="Ranking da Sala"
+          aria-label="Ranking da Sala"
         >
-          <div className="w-9 h-9 rounded-xl bg-amber-500/15 text-amber-500 flex items-center justify-center shrink-0 border border-amber-500/30 group-hover:scale-105 transition-transform">
-            <Trophy className="w-4 h-4" />
-          </div>
-          <div className="min-w-0">
-            <span className="block text-xs font-black text-zinc-200 tracking-tight group-hover:text-amber-400 transition-colors">
-              Ranking
-            </span>
-            <span className="block text-[10px] text-zinc-400 truncate">
-              Placar e vitórias
-            </span>
-          </div>
+          <Trophy className="w-5 h-5" />
         </button>
 
-        {/* Botão Jogadores */}
+        {/* 👥 Botão Jogadores */}
         <button
           type="button"
           onClick={onOpenPlayersDrawer}
-          className="w-full flex items-center gap-3 p-3 rounded-2xl bg-zinc-900/60 hover:bg-zinc-800/80 active:scale-[0.98] border border-zinc-800/80 hover:border-primary/50 text-left transition-all cursor-pointer shadow-md group"
+          className="relative w-11 h-11 rounded-2xl bg-zinc-900/90 hover:bg-zinc-800 active:scale-95 border border-zinc-700/80 hover:border-zinc-500 text-zinc-100 hover:text-white flex items-center justify-center transition-all cursor-pointer shadow-md"
+          title={`Jogadores na sala (${playersCount})`}
+          aria-label={`Jogadores na sala (${playersCount})`}
         >
-          <div className="relative w-9 h-9 rounded-xl bg-primary/15 text-primary flex items-center justify-center shrink-0 border border-primary/30 group-hover:scale-105 transition-transform">
-            <Users className="w-5 h-5 shrink-0" />
-            <span className="absolute -top-1 -right-1 bg-primary text-primary-foreground text-[8px] font-black w-4 h-4 rounded-full flex items-center justify-center shadow-xs">
-              {playersCount}
-            </span>
-          </div>
-          <div className="min-w-0">
-            <span className="block text-xs font-black text-zinc-200 tracking-tight group-hover:text-primary transition-colors">
-              Jogadores
-            </span>
-            <span className="block text-[10px] text-zinc-400 truncate">
-              {playersCount} participante(s)
-            </span>
-          </div>
+          <Users className="w-5 h-5" />
+          <span className="absolute -top-1 -right-1 bg-primary text-primary-foreground text-[9px] font-black w-4.5 h-4.5 rounded-full flex items-center justify-center shadow-xs border border-zinc-900">
+            {playersCount}
+          </span>
         </button>
 
-        {/* Botão Como Jogar */}
+        {/* ❓ Botão Como Jogar / Regras */}
         <button
           type="button"
           onClick={onOpenHelp}
-          className="w-full flex items-center gap-3 p-3 rounded-2xl bg-zinc-900/60 hover:bg-zinc-800/80 active:scale-[0.98] border border-zinc-800/80 hover:border-indigo-500/50 text-left transition-all cursor-pointer shadow-md group"
+          className="w-11 h-11 rounded-2xl bg-zinc-900/90 hover:bg-zinc-800 active:scale-95 border border-zinc-700/80 hover:border-indigo-500/60 text-zinc-100 hover:text-white flex items-center justify-center transition-all cursor-pointer shadow-md"
+          title="Como Jogar / Regras"
+          aria-label="Como Jogar / Regras"
         >
-          <div className="w-9 h-9 rounded-xl bg-indigo-500/15 text-indigo-400 flex items-center justify-center shrink-0 border border-indigo-500/30 group-hover:scale-105 transition-transform">
-            <HelpCircle className="w-4 h-4" />
-          </div>
-          <div className="min-w-0">
-            <span className="block text-xs font-black text-zinc-200 tracking-tight group-hover:text-indigo-400 transition-colors">
-              Como Jogar
-            </span>
-            <span className="block text-[10px] text-zinc-400 truncate">
-              Regras e objetivos
-            </span>
-          </div>
+          <HelpCircle className="w-5 h-5" />
         </button>
 
-        {/* Botão Configurações */}
+        {/* ⚙️ Botão Configurações da Sala */}
         <button
           type="button"
           onClick={onOpenSettings}
-          className="w-full flex items-center gap-3 p-3 rounded-2xl bg-zinc-900/60 hover:bg-zinc-800/80 active:scale-[0.98] border border-zinc-800/80 hover:border-primary/50 text-left transition-all cursor-pointer shadow-md group"
+          className="relative w-11 h-11 rounded-2xl bg-zinc-900/90 hover:bg-zinc-800 active:scale-95 border border-zinc-700/80 hover:border-zinc-500 text-zinc-100 hover:text-white flex items-center justify-center transition-all cursor-pointer shadow-md"
+          title={
+            roomSettings?.turnTimerEnabled
+              ? `Configurações da Sala (Anti-Stall: ${roomSettings.turnTimerDuration}s)`
+              : "Configurações da Sala"
+          }
+          aria-label="Configurações da Sala"
         >
-          <div className="w-9 h-9 rounded-xl bg-zinc-700/20 text-zinc-300 flex items-center justify-center shrink-0 border border-zinc-700/40 group-hover:scale-105 transition-transform">
-            <Settings className="w-4 h-4" />
-          </div>
-          <div className="min-w-0">
-            <span className="block text-xs font-black text-zinc-200 tracking-tight group-hover:text-primary transition-colors">
-              Configurações
-            </span>
-            <span className="block text-[10px] text-zinc-400 truncate">
-              {roomSettings?.turnTimerEnabled
-                ? `Anti-Stall: ${roomSettings.turnTimerDuration}s`
-                : "Anti-Stall e regras"}
-            </span>
-          </div>
+          <Settings className="w-5 h-5" />
+          {roomSettings?.turnTimerEnabled && (
+            <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-primary border-2 border-zinc-900" />
+          )}
         </button>
 
-        {/* Botão Tela Cheia */}
+        {/* ⛶ Botão Tela Cheia */}
         {isFullscreenSupported && (
           <button
             type="button"
             onClick={onToggleFullscreen}
-            className="w-full flex items-center gap-3 p-3 rounded-2xl bg-zinc-900/60 hover:bg-zinc-800/80 active:scale-[0.98] border border-zinc-800/80 hover:border-zinc-500/50 text-left transition-all cursor-pointer shadow-md group"
+            className="w-11 h-11 rounded-2xl bg-zinc-900/90 hover:bg-zinc-800 active:scale-95 border border-zinc-700/80 hover:border-zinc-500 text-zinc-100 hover:text-white flex items-center justify-center transition-all cursor-pointer shadow-md"
+            title={isFullscreen ? "Sair da Tela Cheia" : "Modo Tela Cheia"}
+            aria-label={isFullscreen ? "Sair da Tela Cheia" : "Modo Tela Cheia"}
           >
-            <div className="w-9 h-9 rounded-xl bg-zinc-700/20 text-zinc-300 flex items-center justify-center shrink-0 border border-zinc-700/40 group-hover:scale-105 transition-transform">
-              {isFullscreen ? <Minimize className="w-4 h-4" /> : <Maximize className="w-4 h-4" />}
-            </div>
-            <div className="min-w-0">
-              <span className="block text-xs font-black text-zinc-200 tracking-tight group-hover:text-zinc-100 transition-colors">
-                {isFullscreen ? "Sair da Tela Cheia" : "Tela Cheia"}
-              </span>
-              <span className="block text-[10px] text-zinc-400 truncate">
-                {isFullscreen ? "Reduzir janela" : "Modo imersivo PWA"}
-              </span>
-            </div>
+            {isFullscreen ? <Minimize className="w-5 h-5" /> : <Maximize className="w-5 h-5" />}
           </button>
+        )}
+
+        {/* 😊 Botão Reações de Emojis */}
+        {onSendReaction && (
+          <ReactionPicker
+            onSendReaction={onSendReaction}
+            popoverPlacement="left"
+            triggerClassName="w-11 h-11 rounded-2xl bg-zinc-900/90 hover:bg-zinc-800 active:scale-95 border border-zinc-700/80 hover:border-amber-500/60 text-amber-400 hover:text-amber-300 flex items-center justify-center transition-all cursor-pointer shadow-md"
+          />
         )}
       </div>
 
-      {/* Rodapé com Botão Sair */}
-      <div className="pt-3 border-t border-zinc-800/80 mt-auto">
+      {/* 🚪 Rodapé com Botão Sair da Sala */}
+      <div className="pt-3 border-t border-zinc-800/80 mt-auto flex flex-col items-center">
         <button
           type="button"
           onClick={onLeaveRoom}
-          className="w-full flex items-center justify-center gap-2 p-2.5 rounded-xl bg-zinc-900/40 hover:bg-red-500/10 hover:text-red-400 hover:border-red-500/30 text-zinc-400 border border-zinc-800/60 text-xs font-bold transition-all cursor-pointer"
+          className="w-11 h-11 rounded-2xl bg-zinc-900/90 hover:bg-red-500/20 active:scale-95 border border-zinc-700/80 hover:border-red-500/50 text-zinc-400 hover:text-red-400 flex items-center justify-center transition-all cursor-pointer shadow-md"
+          title="Sair da Sala"
+          aria-label="Sair da Sala"
         >
-          <LogOut className="w-3.5 h-3.5" />
-          <span>Sair da Sala</span>
+          <LogOut className="w-5 h-5" />
         </button>
       </div>
     </aside>

@@ -73,9 +73,10 @@ export default class MainServer implements Party.Server {
   private leaderboardLastResetAt: number = Date.now();
   private matchRecorded: boolean = false;
   private reactionTimestamps: Map<string, number[]> = new Map();
+  private disconnectTimeouts: Map<string, ReturnType<typeof setTimeout>> = new Map();
 
-  constructor(readonly room: Party.Room) {
-    this.state = {
+  private getInitialState(): GameState {
+    return {
       status: 'lobby',
       players: {},
       creatorId: null,
@@ -98,6 +99,25 @@ export default class MainServer implements Party.Server {
       },
       turnExpiresAt: undefined,
     };
+  }
+
+  private resetRoomState() {
+    this.clearTurnTimer();
+    this.clearAutoStartTimer();
+    for (const timeout of this.disconnectTimeouts.values()) {
+      clearTimeout(timeout);
+    }
+    this.disconnectTimeouts.clear();
+    this.state = this.getInitialState();
+    this.connectionToPlayerId.clear();
+    this.playerToConnectionId.clear();
+    this.reactionTimestamps.clear();
+    this.matchRecorded = false;
+    this.notifyRegistry("delete");
+  }
+
+  constructor(readonly room: Party.Room) {
+    this.state = this.getInitialState();
   }
 
   async onStart() {
@@ -605,6 +625,10 @@ export default class MainServer implements Party.Server {
 
   private startGame() {
     this.clearAutoStartTimer();
+    for (const timeout of this.disconnectTimeouts.values()) {
+      clearTimeout(timeout);
+    }
+    this.disconnectTimeouts.clear();
     this.matchRecorded = false;
     if (this.state.status !== "lobby") return;
     const playerIds = Object.keys(this.state.players);
@@ -681,19 +705,48 @@ export default class MainServer implements Party.Server {
   }
 
   onClose(conn: Party.Connection) {
-    console.log(`Conexão fechada: ${conn.id}`);
+    console.log(`Conexão fechada: ${conn.id} na sala ${this.room.id}`);
     const playerId = this.connectionToPlayerId.get(conn.id);
-    if (!playerId) return;
+    this.connectionToPlayerId.delete(conn.id);
 
     // Se este jogador já tem uma conexão mais nova ativa, ignora o fechamento do socket antigo
-    const activeConnId = this.playerToConnectionId.get(playerId);
-    if (activeConnId && activeConnId !== conn.id) {
-      this.connectionToPlayerId.delete(conn.id);
+    if (playerId) {
+      const activeConnId = this.playerToConnectionId.get(playerId);
+      if (activeConnId === conn.id) {
+        this.playerToConnectionId.delete(playerId);
+      } else if (activeConnId && activeConnId !== conn.id) {
+        return;
+      }
+    }
+
+    const remainingConnections = [...this.room.getConnections()].filter(c => c.id !== conn.id);
+
+    // Se não houver mais conexões ativas na sala, expurga tudo imediatamente
+    if (remainingConnections.length === 0) {
+      console.log(`Todos os participantes saíram da sala ${this.room.id}. Expurgo total de sala fantasma executado.`);
+      this.resetRoomState();
       return;
     }
 
-    this.connectionToPlayerId.delete(conn.id);
-    this.playerToConnectionId.delete(playerId);
+    // Se ainda houver outros jogadores na sala, agenda timeout seguro (15s) para liberar a vaga caso não reconecte
+    if (playerId && this.state.players[playerId]) {
+      const DISCONNECT_TIMEOUT_MS = 15000;
+      if (this.disconnectTimeouts.has(playerId)) {
+        clearTimeout(this.disconnectTimeouts.get(playerId)!);
+        this.disconnectTimeouts.delete(playerId);
+      }
+
+      const timeout = setTimeout(() => {
+        this.disconnectTimeouts.delete(playerId);
+        this.removeDisconnectedPlayer(playerId);
+      }, DISCONNECT_TIMEOUT_MS);
+
+      this.disconnectTimeouts.set(playerId, timeout);
+    }
+  }
+
+  private removeDisconnectedPlayer(playerId: string) {
+    if (!this.state.players[playerId]) return;
 
     if (this.state.status === "playing") {
       const player = this.state.players[playerId];
@@ -701,7 +754,7 @@ export default class MainServer implements Party.Server {
         this.addLog(`O espectador ${player.name || playerId} desconectou.`);
         delete this.state.players[playerId];
       } else {
-        this.addLog(`O jogador ${player?.name || playerId} desconectou.`);
+        this.addLog(`O jogador ${player?.name || playerId} desconectou e foi removido.`);
         this.reclaimPlayerCards(playerId);
         this.checkEliminations();
       }
@@ -967,6 +1020,12 @@ export default class MainServer implements Party.Server {
           const oldConnId = this.playerToConnectionId.get(rawPlayerId);
           if (oldConnId && oldConnId !== sender.id) {
             this.connectionToPlayerId.delete(oldConnId);
+          }
+
+          if (this.disconnectTimeouts.has(rawPlayerId)) {
+            clearTimeout(this.disconnectTimeouts.get(rawPlayerId)!);
+            this.disconnectTimeouts.delete(rawPlayerId);
+            this.addLog(`⚡ ${player.name} reconectou à partida.`);
           }
 
           this.connectionToPlayerId.set(sender.id, rawPlayerId);

@@ -358,7 +358,7 @@ export function GameBoard({
             }`}
           >
             {onSendReaction && (
-              <div className="absolute -top-4.5 right-3 z-30">
+              <div className="lg:hidden absolute -top-4.5 right-3 z-30">
                 <ReactionPicker onSendReaction={onSendReaction} />
               </div>
             )}
@@ -431,6 +431,7 @@ export function GameBoard({
           onOpenPlayersDrawer={() => setIsPlayersDrawerOpen(true)}
           onOpenHelp={() => setIsHelpOpen(true)}
           onOpenSettings={() => setIsSettingsModalOpen(true)}
+          onSendReaction={onSendReaction}
           onLeaveRoom={() => router.push("/")}
         />
       </div>

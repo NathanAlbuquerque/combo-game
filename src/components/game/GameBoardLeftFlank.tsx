@@ -60,16 +60,16 @@ export function GameBoardLeftFlank({
                 variant="outline"
                 size="sm"
                 onClick={onOpenShareModal}
-                className="w-full justify-center font-bold text-xs h-8 bg-primary/10 hover:bg-primary/20 text-primary border-primary/30 cursor-pointer gap-1.5 shadow-2xs"
+                className="w-full justify-center font-bold text-xs h-8 bg-zinc-900/90 hover:bg-zinc-800 border border-zinc-700/80 hover:border-zinc-500 text-zinc-100 hover:text-white cursor-pointer gap-1.5 shadow-2xs transition-all"
               >
-                <QrCode className="w-3.5 h-3.5" />
+                <QrCode className="w-3.5 h-3.5 text-zinc-100" />
                 <span>QR Code / Convidar</span>
               </Button>
               <CopyRoomButton
                 roomId={roomId}
                 variant="secondary"
                 size="sm"
-                className="w-full justify-center font-bold text-xs h-8 bg-zinc-800/80 hover:bg-zinc-700/80 text-zinc-100 border-zinc-700 cursor-pointer"
+                className="w-full justify-center font-bold text-xs h-8 bg-zinc-900/90 hover:bg-zinc-800 border border-zinc-700/80 hover:border-zinc-500 text-zinc-100 hover:text-white cursor-pointer transition-all"
               />
             </div>
           )}
