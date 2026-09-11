@@ -11,6 +11,7 @@ interface CopyRoomButtonProps {
   size?: "default" | "sm" | "lg";
   className?: string;
   showTextOnMobile?: boolean;
+  iconOnly?: boolean;
 }
 
 export function CopyRoomButton({
@@ -19,6 +20,7 @@ export function CopyRoomButton({
   size = "default",
   className,
   showTextOnMobile = false,
+  iconOnly = false,
 }: CopyRoomButtonProps) {
   const [copied, setCopied] = useState(false);
 
@@ -74,15 +76,19 @@ export function CopyRoomButton({
       {copied ? (
         <>
           <Check className="w-4 h-4 text-green-500 shrink-0 animate-in zoom-in-50 duration-200" />
-          <span className="font-semibold">Copiado!</span>
+          {!iconOnly && <span className="font-semibold">Copiado!</span>}
         </>
       ) : (
         <>
           <Link2 className="w-4 h-4 shrink-0" />
-          <span className={cn(showTextOnMobile ? "inline" : "hidden sm:inline")}>
-            Copiar Link da Sala
-          </span>
-          {!showTextOnMobile && <span className="sm:hidden">Link</span>}
+          {!iconOnly && (
+            <>
+              <span className={cn(showTextOnMobile ? "inline" : "hidden sm:inline")}>
+                Copiar Link da Sala
+              </span>
+              {!showTextOnMobile && <span className="sm:hidden">Link</span>}
+            </>
+          )}
         </>
       )}
     </Button>
