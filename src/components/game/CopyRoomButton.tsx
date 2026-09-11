@@ -12,6 +12,8 @@ interface CopyRoomButtonProps {
   className?: string;
   showTextOnMobile?: boolean;
   iconOnly?: boolean;
+  showRoomCode?: boolean;
+  codeClassName?: string;
 }
 
 export function CopyRoomButton({
@@ -21,6 +23,8 @@ export function CopyRoomButton({
   className,
   showTextOnMobile = false,
   iconOnly = false,
+  showRoomCode = false,
+  codeClassName,
 }: CopyRoomButtonProps) {
   const [copied, setCopied] = useState(false);
 
@@ -60,7 +64,7 @@ export function CopyRoomButton({
     }
   };
 
-  return (
+  const buttonNode = (
     <Button
       variant={variant}
       size={size}
@@ -92,5 +96,24 @@ export function CopyRoomButton({
         </>
       )}
     </Button>
+  );
+
+  if (!showRoomCode) {
+    return buttonNode;
+  }
+
+  return (
+    <div className="inline-flex items-center gap-1.5 select-none">
+      <span
+        className={cn(
+          "font-mono font-black text-xs tracking-wider bg-zinc-900/90 text-zinc-100 px-2 py-1 rounded-lg border border-zinc-700/80 shadow-xs select-all",
+          codeClassName
+        )}
+        title="Código da Sala"
+      >
+        #{roomId}
+      </span>
+      {buttonNode}
+    </div>
   );
 }

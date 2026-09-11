@@ -28,6 +28,8 @@ import {
   Timer,
   Maximize,
   Minimize,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
@@ -129,6 +131,8 @@ export function GameBoard({
   const [mobileToast, setMobileToast] = useState<string | null>(null);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
+  const [isActionLogExpanded, setIsActionLogExpanded] = useState(false);
+  const [showTurnFlash, setShowTurnFlash] = useState(false);
   const [now, setNow] = useState(() => Date.now());
 
   // Contador em tempo real do cronômetro Anti-Stall
@@ -173,7 +177,7 @@ export function GameBoard({
   const isActiveTurn = isMyTurn && !state.pendingAction && !isSpectator;
   const isMyTurnActive = Boolean((isActiveTurn || isMyExtraPlay) && !me?.isEliminated && !isSpectator && !state.pendingAction);
 
-  // Efeito sonoro nativo sintetizado (Web Audio) e feedback tátil (Vibration API) na troca de turno
+  // Efeito sonoro nativo sintetizado (Web Audio), feedback tátil (Vibration API) e Flash Visual na troca de turno
   const wasTurnActiveRef = useRef(false);
   const wasExtraPlayRef = useRef(false);
 
@@ -184,6 +188,9 @@ export function GameBoard({
     if (becameMyTurn || becameExtraPlay) {
       playTurnNotificationSound();
       triggerTurnHaptics();
+      setShowTurnFlash(true);
+      const timer = setTimeout(() => setShowTurnFlash(false), 1200);
+      return () => clearTimeout(timer);
     }
 
     wasTurnActiveRef.current = isMyTurnActive;
@@ -297,80 +304,226 @@ export function GameBoard({
 
   return (
     <div className="min-h-screen w-full bg-zinc-950 bg-gradient-to-b from-zinc-900/60 via-zinc-950 to-black flex justify-center items-center overflow-x-hidden font-sans relative">
+      {/* ========================================================= */}
+      {/* FLASH LUMINOSO E SPLASH CENTRAL ("SUA VEZ!") */}
+      {/* ========================================================= */}
+      {showTurnFlash && (
+        <>
+          <div className="pointer-events-none fixed inset-0 z-50 ring-8 ring-emerald-500/80 inset-0 shadow-[inset_0_0_120px_rgba(16,185,129,0.45)] animate-pulse transition-opacity duration-300" />
+          <div className="pointer-events-none fixed inset-0 z-50 flex items-center justify-center p-4">
+            <div className="bg-emerald-500 text-zinc-950 px-6 py-3.5 rounded-2xl font-black text-xl sm:text-2xl tracking-wider shadow-2xl shadow-emerald-500/50 border-2 border-emerald-300 flex items-center gap-3 animate-in zoom-in-75 fade-in duration-200">
+              <span className="text-2xl animate-bounce">⚡</span>
+              <span>SUA VEZ DE JOGAR!</span>
+            </div>
+          </div>
+        </>
+      )}
+
       <div className="w-full flex justify-center items-stretch h-[100dvh] max-h-[100dvh]">
         
         {/* ========================================================= */}
         {/* FLANCO ESQUERDO (Desktop: hidden lg:flex) */}
         {/* ========================================================= */}
-        <aside className="hidden lg:flex flex-col w-[220px] xl:w-[240px] p-3.5 py-4 shrink-0 justify-between gap-3 select-none">
-          {/* Cabeçalho com Código da Sala e Copiar Link */}
-          <div className="bg-zinc-900/60 backdrop-blur-md border border-zinc-800/80 rounded-2xl p-3.5 shadow-md space-y-2.5 shrink-0">
-            <div className="flex items-center justify-between">
-              <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-400">
-                Código da Sala
-              </span>
-              <span className="font-mono font-black text-sm text-primary tracking-widest">
-                #{roomId || "---"}
-              </span>
-            </div>
-            {roomId && (
-              <div className="flex flex-col gap-1.5">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setIsShareModalOpen(true)}
-                  className="w-full justify-center font-bold text-xs h-8 bg-primary/10 hover:bg-primary/20 text-primary border-primary/30 cursor-pointer gap-1.5 shadow-2xs"
-                >
-                  <QrCode className="w-3.5 h-3.5" />
-                  <span>QR Code / Convidar</span>
-                </Button>
-                <CopyRoomButton
-                  roomId={roomId}
-                  variant="secondary"
-                  size="sm"
-                  className="w-full justify-center font-bold text-xs h-8 bg-zinc-800/80 hover:bg-zinc-700/80 text-zinc-100 border-zinc-700 cursor-pointer"
-                />
+        <aside className="hidden lg:flex flex-col w-[230px] xl:w-[250px] p-3.5 py-4 shrink-0 justify-between gap-3 select-none">
+          <div className="space-y-3 shrink-0">
+            {/* 1. Cabeçalho com Código da Sala e Copiar Link */}
+            <div className="bg-zinc-900/60 backdrop-blur-md border border-zinc-800/80 rounded-2xl p-3.5 shadow-md space-y-2.5">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-400">
+                  Código da Sala
+                </span>
+                <span className="font-mono font-black text-sm text-zinc-100 tracking-widest bg-zinc-950 px-2 py-0.5 rounded-lg border border-zinc-700/80 select-all shadow-inner">
+                  #{roomId || "---"}
+                </span>
               </div>
-            )}
+              {roomId && (
+                <div className="flex flex-col gap-1.5">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setIsShareModalOpen(true)}
+                    className="w-full justify-center font-bold text-xs h-8 bg-primary/10 hover:bg-primary/20 text-primary border-primary/30 cursor-pointer gap-1.5 shadow-2xs"
+                  >
+                    <QrCode className="w-3.5 h-3.5" />
+                    <span>QR Code / Convidar</span>
+                  </Button>
+                  <CopyRoomButton
+                    roomId={roomId}
+                    variant="secondary"
+                    size="sm"
+                    className="w-full justify-center font-bold text-xs h-8 bg-zinc-800/80 hover:bg-zinc-700/80 text-zinc-100 border-zinc-700 cursor-pointer"
+                  />
+                </div>
+              )}
+            </div>
+
+            {/* 2. Indicador Fixo de Quem Está Jogando (Visão dos Oponentes & Jogador Local) */}
+            <div
+              className={cn(
+                "p-3.5 rounded-2xl border backdrop-blur-md shadow-md transition-all duration-300",
+                isMyTurnActive
+                  ? "bg-emerald-950/40 border-emerald-500/60 shadow-emerald-950/30"
+                  : isSpectator
+                  ? "bg-amber-950/30 border-amber-500/40"
+                  : "bg-zinc-900/60 border-zinc-800/80"
+              )}
+            >
+              <div className="flex items-center justify-between gap-1.5 mb-2">
+                <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-400">
+                  Turno Atual
+                </span>
+                {isMyTurnActive ? (
+                  <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 text-[10px] font-black tracking-wide border border-emerald-500/40 flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
+                    SUA VEZ
+                  </span>
+                ) : isSpectator ? (
+                  <span className="px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-400 text-[10px] font-black">
+                    ESPECTADOR
+                  </span>
+                ) : (
+                  <span className="px-2 py-0.5 rounded-full bg-zinc-800 text-zinc-400 text-[10px] font-bold">
+                    EM ANDAMENTO
+                  </span>
+                )}
+              </div>
+
+              <div className="flex items-center gap-2.5">
+                <div
+                  className={cn(
+                    "w-9 h-9 rounded-xl flex items-center justify-center font-black text-sm shrink-0 border",
+                    isMyTurnActive
+                      ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/40 shadow-xs"
+                      : "bg-zinc-800 text-zinc-300 border-zinc-700"
+                  )}
+                >
+                  {isMyTurnActive
+                    ? "⚡"
+                    : (state.players[state.currentTurnPlayerId!]?.name || "?").charAt(0).toUpperCase()}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p
+                    className={cn(
+                      "text-xs font-black truncate",
+                      isMyTurnActive ? "text-emerald-400" : "text-zinc-200"
+                    )}
+                  >
+                    {isMyTurnActive
+                      ? "Você"
+                      : state.players[state.currentTurnPlayerId!]?.name || "Aguardando..."}
+                  </p>
+                  <p className="text-[10px] text-zinc-400 truncate">
+                    {isMyTurnActive
+                      ? isMyExtraPlay
+                        ? "Jogada extra (Objeto)"
+                        : "Sua vez de jogar"
+                      : isSpectator
+                      ? "Assistindo à partida"
+                      : "Aguardando jogada"}
+                  </p>
+                </div>
+              </div>
+
+              {/* Anti-Stall Timer no Card Desktop */}
+              {state.roomSettings?.turnTimerEnabled && remainingSeconds !== null && (
+                <div className="mt-2.5 pt-2.5 border-t border-zinc-800/80 space-y-1">
+                  <div className="flex items-center justify-between text-[10px] font-mono">
+                    <span className="text-zinc-400 flex items-center gap-1 font-bold">
+                      <Timer className="w-3 h-3 text-zinc-400" /> Tempo
+                    </span>
+                    <span
+                      className={cn(
+                        "font-black px-1.5 py-0.5 rounded",
+                        remainingSeconds <= 5
+                          ? "text-red-400 bg-red-500/10 font-bold animate-pulse"
+                          : remainingSeconds <= 10
+                          ? "text-amber-400 bg-amber-500/10"
+                          : "text-primary"
+                      )}
+                    >
+                      {remainingSeconds}s
+                    </span>
+                  </div>
+                  <div className="w-full h-1 bg-zinc-800 rounded-full overflow-hidden">
+                    <div
+                      className={cn(
+                        "h-full transition-all duration-200 ease-linear rounded-full",
+                        remainingSeconds > 10
+                          ? "bg-primary"
+                          : remainingSeconds > 5
+                          ? "bg-amber-500"
+                          : "bg-red-500 animate-pulse"
+                      )}
+                      style={{
+                        width: `${Math.min(
+                          100,
+                          Math.max(
+                            0,
+                            (remainingSeconds /
+                              (state.roomSettings.turnTimerDuration || 30)) *
+                              100
+                          )
+                        )}%`,
+                      }}
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
 
-          {/* Painel Dedicado de Histórico de Jogadas */}
-          <div className="flex-1 flex flex-col min-h-0 bg-zinc-900/60 backdrop-blur-md border border-zinc-800/80 rounded-2xl p-3.5 shadow-xl">
-            <div className="flex items-center justify-between pb-2.5 mb-2.5 border-b border-zinc-800 shrink-0">
-              <div className="flex items-center gap-2">
-                <History className="w-4 h-4 text-primary" />
-                <span className="text-xs font-black uppercase tracking-wider text-zinc-200">
-                  Histórico
+          {/* 3. Acordeão do Histórico de Jogadas */}
+          <div
+            className={cn(
+              "flex flex-col transition-all duration-300",
+              isActionLogExpanded ? "flex-1 min-h-0" : "shrink-0"
+            )}
+          >
+            <button
+              type="button"
+              onClick={() => setIsActionLogExpanded(!isActionLogExpanded)}
+              className="w-full flex items-center justify-between p-3 rounded-2xl bg-zinc-900/60 hover:bg-zinc-800/80 active:scale-[0.99] border border-zinc-800/80 hover:border-zinc-700 text-left transition-all cursor-pointer shadow-md group"
+            >
+              <div className="flex items-center gap-2 truncate">
+                <span className="text-sm shrink-0">📜</span>
+                <span className="text-xs font-black text-zinc-200 tracking-tight group-hover:text-primary transition-colors truncate">
+                  Histórico ({state.actionLog.length})
                 </span>
               </div>
-              {state.actionLog.length > 0 && (
-                <span className="text-[10px] font-mono px-1.5 py-0.5 rounded-full bg-zinc-800 text-zinc-400 font-bold">
-                  {state.actionLog.length}
-                </span>
-              )}
-            </div>
+              <div className="flex items-center gap-1.5 shrink-0">
+                {isActionLogExpanded ? (
+                  <ChevronUp className="w-4 h-4 text-zinc-400 group-hover:text-zinc-200 transition-transform" />
+                ) : (
+                  <ChevronDown className="w-4 h-4 text-zinc-400 group-hover:text-zinc-200 transition-transform" />
+                )}
+              </div>
+            </button>
 
-            <div className="flex-1 overflow-y-auto space-y-2 pr-1 scrollbar-thin scrollbar-thumb-zinc-700 scrollbar-track-transparent">
-              {state.actionLog.length === 0 ? (
-                <div className="h-full flex flex-col items-center justify-center text-center p-3 text-zinc-500 text-xs gap-1.5">
-                  <History className="w-7 h-7 opacity-30" />
-                  <span>Aguardando o início das jogadas...</span>
+            {isActionLogExpanded && (
+              <div className="flex-1 flex flex-col min-h-0 bg-zinc-900/60 backdrop-blur-md border border-zinc-800/80 rounded-2xl p-3 shadow-xl mt-2 animate-in fade-in slide-in-from-top-2 duration-200">
+                <div className="flex-1 overflow-y-auto space-y-2 pr-1 scrollbar-thin scrollbar-thumb-zinc-700 scrollbar-track-transparent">
+                  {state.actionLog.length === 0 ? (
+                    <div className="h-full flex flex-col items-center justify-center text-center p-3 text-zinc-500 text-xs gap-1.5">
+                      <History className="w-6 h-6 opacity-30" />
+                      <span>Aguardando o início das jogadas...</span>
+                    </div>
+                  ) : (
+                    state.actionLog.map((log, index) => (
+                      <div
+                        key={index}
+                        className="p-2 rounded-xl bg-zinc-950/60 border border-zinc-800/80 text-[11px] leading-snug text-zinc-300 shadow-2xs"
+                      >
+                        <span className="text-[9.5px] font-mono font-bold text-zinc-500 block mb-0.5">
+                          #{index + 1}
+                        </span>
+                        <p className="break-words font-medium">{log}</p>
+                      </div>
+                    ))
+                  )}
+                  <div ref={logEndRef} />
                 </div>
-              ) : (
-                state.actionLog.map((log, index) => (
-                  <div
-                    key={index}
-                    className="p-2 rounded-xl bg-zinc-950/60 border border-zinc-800/80 text-[11px] leading-snug text-zinc-300 animate-in fade-in duration-200 shadow-2xs"
-                  >
-                    <span className="text-[9.5px] font-mono font-bold text-zinc-500 block mb-0.5">
-                      #{index + 1}
-                    </span>
-                    <p className="break-words font-medium">{log}</p>
-                  </div>
-                ))
-              )}
-              <div ref={logEndRef} />
-            </div>
+              </div>
+            )}
           </div>
         </aside>
 
@@ -549,6 +702,20 @@ export function GameBoard({
               {/* Fallback de Botões Utilitários para Telas Mobile (lg:hidden) */}
               <div className="lg:hidden flex items-center gap-1 shrink-0">
                 {roomId && (
+                  <div className="flex items-center gap-0.5 bg-zinc-900/90 px-2 py-0.5 rounded-full border border-zinc-700/80 shrink-0">
+                    <span className="font-mono font-black text-[11px] text-zinc-100 tracking-wider select-all">
+                      #{roomId}
+                    </span>
+                    <CopyRoomButton 
+                      roomId={roomId} 
+                      variant="ghost" 
+                      size="sm"
+                      iconOnly
+                      className="h-6 w-6 p-0 text-muted-foreground hover:text-foreground shrink-0 cursor-pointer" 
+                    />
+                  </div>
+                )}
+                {roomId && (
                   <button 
                     type="button"
                     onClick={() => setIsShareModalOpen(true)}
@@ -559,15 +726,6 @@ export function GameBoard({
                     <QrCode className="w-3.5 h-3.5" />
                   </button>
                 )}
-                {roomId && (
-                  <CopyRoomButton 
-                    roomId={roomId} 
-                    variant="ghost" 
-                    size="sm"
-                    iconOnly
-                    className="h-7 w-7 p-0 rounded-full text-muted-foreground hover:text-foreground shrink-0 cursor-pointer" 
-                  />
-                )}
                 <button 
                   type="button"
                   onClick={() => setIsPlayersDrawerOpen(true)}
@@ -575,7 +733,7 @@ export function GameBoard({
                   title="Jogadores na sala"
                   aria-label="Jogadores na sala"
                 >
-                  <Users className="w-3.5 h-3.5" />
+                  <Users className="w-4.5 h-4.5 shrink-0" />
                   <span className="absolute -top-0.5 -right-0.5 bg-primary text-primary-foreground text-[8px] font-black w-3.5 h-3.5 rounded-full flex items-center justify-center">
                     {Object.keys(state.players).length}
                   </span>
@@ -821,7 +979,7 @@ export function GameBoard({
             className="w-full flex items-center gap-3 p-3 rounded-2xl bg-zinc-900/60 hover:bg-zinc-800/80 active:scale-[0.98] border border-zinc-800/80 hover:border-primary/50 text-left transition-all cursor-pointer shadow-md group"
           >
             <div className="relative w-9 h-9 rounded-xl bg-primary/15 text-primary flex items-center justify-center shrink-0 border border-primary/30 group-hover:scale-105 transition-transform">
-              <Users className="w-4 h-4" />
+              <Users className="w-5 h-5 shrink-0" />
               <span className="absolute -top-1 -right-1 bg-primary text-primary-foreground text-[8px] font-black w-4 h-4 rounded-full flex items-center justify-center shadow-xs">
                 {Object.keys(state.players).length}
               </span>
