@@ -4,11 +4,13 @@ import { useEffect, useRef, useState, Suspense } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import usePartySocket from "partysocket/react";
 import { Button } from "@/components/ui/button";
-import { BarChart3 } from "lucide-react";
-import { GameState, ServerMessage } from "@/types/game";
+import { BarChart3, Settings, QrCode, Timer } from "lucide-react";
+import { GameState, ServerMessage, RoomSettings } from "@/types/game";
 import { GameBoard } from "@/components/game/GameBoard";
 import { CopyRoomButton } from "@/components/game/CopyRoomButton";
 import { MatchStatsModal } from "@/components/game/MatchStatsModal";
+import { ShareRoomModal } from "@/components/game/ShareRoomModal";
+import { RoomSettingsModal } from "@/components/game/RoomSettingsModal";
 
 function getOrCreatePlayerId(roomId: string): string {
   if (typeof window === "undefined") return "";
@@ -37,6 +39,8 @@ function RoomContent() {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [toastMsg, setToastMsg] = useState<string | null>(null);
   const [isStatsOpen, setIsStatsOpen] = useState(false);
+  const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+  const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
   const [stablePlayerId] = useState(() => getOrCreatePlayerId(roomId));
   const [currentTime, setCurrentTime] = useState(() => Date.now());
 
@@ -229,6 +233,8 @@ function RoomContent() {
     socket.send(JSON.stringify({ type: "resolve_pending_action", cardId }));
   const handleSkipExtraPlay = () =>
     socket.send(JSON.stringify({ type: "skip_extra_play" }));
+  const handleUpdateSettings = (settings: Partial<RoomSettings>) =>
+    socket.send(JSON.stringify({ type: "update_room_settings", settings }));
 
   // ESTADO: LOBBY
   if (gameState.status === "lobby") {
@@ -245,9 +251,29 @@ function RoomContent() {
                 {roomId}
               </h1>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setIsSettingsModalOpen(true)}
+                className="h-8 px-2.5 text-xs font-bold gap-1 cursor-pointer"
+                title="Configurações da sala"
+              >
+                <Settings className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Configurar</span>
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setIsShareModalOpen(true)}
+                className="h-8 px-2.5 text-xs font-bold gap-1 cursor-pointer text-primary border-primary/30 bg-primary/10 hover:bg-primary/20"
+                title="Compartilhar com QR Code"
+              >
+                <QrCode className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">QR Code</span>
+              </Button>
               <CopyRoomButton roomId={roomId} size="sm" showTextOnMobile={false} />
-              <Button variant="ghost" size="sm" onClick={() => router.push("/")} className="text-xs text-muted-foreground">
+              <Button variant="ghost" size="sm" onClick={() => router.push("/")} className="text-xs text-muted-foreground h-8 px-2">
                 Sair
               </Button>
             </div>
@@ -256,8 +282,37 @@ function RoomContent() {
           <main className="w-full flex-1 flex flex-col justify-between py-4 space-y-4">
             <div className="p-3 bg-muted/60 border rounded-xl flex items-center justify-between gap-2">
               <span className="text-xs text-muted-foreground">Convide amigos para jogar:</span>
-              <CopyRoomButton roomId={roomId} size="sm" variant="secondary" />
+              <div className="flex items-center gap-1.5">
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => setIsShareModalOpen(true)}
+                  className="font-bold text-xs gap-1.5 h-8 cursor-pointer"
+                >
+                  <QrCode className="w-3.5 h-3.5" />
+                  <span>QR Code</span>
+                </Button>
+                <CopyRoomButton roomId={roomId} size="sm" variant="secondary" />
+              </div>
             </div>
+
+            {gameState.roomSettings?.turnTimerEnabled && (
+              <div className="flex items-center justify-between px-1 text-xs text-muted-foreground">
+                <div className="flex items-center gap-1.5 text-primary font-semibold">
+                  <Timer className="w-3.5 h-3.5" />
+                  <span>Anti-Stall: {gameState.roomSettings.turnTimerDuration}s por turno</span>
+                </div>
+                {isCreator && (
+                  <button
+                    type="button"
+                    onClick={() => setIsSettingsModalOpen(true)}
+                    className="text-[11px] font-bold text-muted-foreground hover:text-foreground underline cursor-pointer"
+                  >
+                    Ajustar
+                  </button>
+                )}
+              </div>
+            )}
 
             {autoStartSeconds !== null && (
               <div className="p-3 bg-amber-500/15 border border-amber-500/30 rounded-xl flex items-center justify-center gap-2 text-amber-600 dark:text-amber-400 font-bold text-xs animate-pulse text-center">
@@ -310,6 +365,19 @@ function RoomContent() {
               )}
             </div>
           </main>
+
+          <ShareRoomModal
+            isOpen={isShareModalOpen}
+            onClose={() => setIsShareModalOpen(false)}
+            roomId={roomId}
+          />
+          <RoomSettingsModal
+            isOpen={isSettingsModalOpen}
+            onClose={() => setIsSettingsModalOpen(false)}
+            settings={gameState.roomSettings}
+            isLeader={isCreator}
+            onUpdateSettings={handleUpdateSettings}
+          />
         </div>
       </div>
     );
@@ -428,6 +496,7 @@ function RoomContent() {
         onDiscard={handleDiscard}
         onResolvePendingAction={handleResolvePendingAction}
         onSkipExtraPlay={handleSkipExtraPlay}
+        onUpdateSettings={handleUpdateSettings}
       />
     </>
   );

@@ -1,11 +1,13 @@
 "use client";
 
-import { GameState, Card as CardType } from "@/types/game";
+import { GameState, Card as CardType, RoomSettings } from "@/types/game";
 import { OpponentView } from "./OpponentView";
 import { PlayerHand } from "./PlayerHand";
 import { Card } from "./Card";
 import { CardPreviewModal } from "./CardPreviewModal";
 import { CopyRoomButton } from "./CopyRoomButton";
+import { ShareRoomModal } from "./ShareRoomModal";
+import { RoomSettingsModal } from "./RoomSettingsModal";
 import { Button } from "@/components/ui/button";
 import {
   HelpCircle,
@@ -19,11 +21,15 @@ import {
   Trophy,
   History,
   LogOut,
+  Settings,
+  QrCode,
+  Timer,
 } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { RoomPlayersDrawer } from "./RoomPlayersDrawer";
 import { LeaderboardModal } from "./LeaderboardModal";
+import { cn } from "@/lib/utils";
 
 function playTurnNotificationSound() {
   if (typeof window === "undefined") return;
@@ -92,6 +98,7 @@ interface GameBoardProps {
   onDiscard: (cardId: string) => void;
   onResolvePendingAction?: (cardId: string) => void;
   onSkipExtraPlay?: () => void;
+  onUpdateSettings?: (settings: Partial<RoomSettings>) => void;
 }
 
 export function GameBoard({
@@ -103,6 +110,7 @@ export function GameBoard({
   onDiscard,
   onResolvePendingAction,
   onSkipExtraPlay,
+  onUpdateSettings,
 }: GameBoardProps) {
   const [targetingCardId, setTargetingCardId] = useState<string | null>(null);
   const [isHelpOpen, setIsHelpOpen] = useState(false);
@@ -111,6 +119,25 @@ export function GameBoard({
   const [previewCard, setPreviewCard] = useState<CardType | null>(null);
   const [isLeaderboardOpen, setIsLeaderboardOpen] = useState(false);
   const [mobileToast, setMobileToast] = useState<string | null>(null);
+  const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+  const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
+  const [now, setNow] = useState(() => Date.now());
+
+  // Contador em tempo real do cronômetro Anti-Stall
+  useEffect(() => {
+    if (!state.roomSettings?.turnTimerEnabled || !state.turnExpiresAt || state.status !== "playing") {
+      return;
+    }
+
+    const timer = setInterval(() => {
+      setNow(Date.now());
+    }, 250);
+    return () => clearInterval(timer);
+  }, [state.roomSettings?.turnTimerEnabled, state.turnExpiresAt, state.status]);
+
+  const remainingSeconds = (state.roomSettings?.turnTimerEnabled && state.turnExpiresAt && state.status === "playing")
+    ? Math.max(0, Math.ceil((state.turnExpiresAt - now) / 1000))
+    : null;
   
   const router = useRouter();
   const lastLogLengthRef = useRef(state.actionLog.length);
@@ -279,12 +306,23 @@ export function GameBoard({
               </span>
             </div>
             {roomId && (
-              <CopyRoomButton
-                roomId={roomId}
-                variant="secondary"
-                size="sm"
-                className="w-full justify-center font-bold text-xs h-8 bg-zinc-800/80 hover:bg-zinc-700/80 text-zinc-100 border-zinc-700 cursor-pointer"
-              />
+              <div className="flex flex-col gap-1.5">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setIsShareModalOpen(true)}
+                  className="w-full justify-center font-bold text-xs h-8 bg-primary/10 hover:bg-primary/20 text-primary border-primary/30 cursor-pointer gap-1.5 shadow-2xs"
+                >
+                  <QrCode className="w-3.5 h-3.5" />
+                  <span>QR Code / Convidar</span>
+                </Button>
+                <CopyRoomButton
+                  roomId={roomId}
+                  variant="secondary"
+                  size="sm"
+                  className="w-full justify-center font-bold text-xs h-8 bg-zinc-800/80 hover:bg-zinc-700/80 text-zinc-100 border-zinc-700 cursor-pointer"
+                />
+              </div>
             )}
           </div>
 
@@ -466,11 +504,53 @@ export function GameBoard({
                       Vez de: {state.players[state.currentTurnPlayerId!]?.name || "..."}
                     </span>
                   )}
+                  {state.roomSettings?.turnTimerEnabled && remainingSeconds !== null && (
+                    <span
+                      className={cn(
+                        "shrink-0 ml-1.5 px-1.5 py-0.5 rounded-full font-mono text-[10px] font-bold border flex items-center gap-1",
+                        remainingSeconds <= 5
+                          ? "bg-red-500/20 text-red-600 dark:text-red-400 border-red-500/40 animate-pulse"
+                          : remainingSeconds <= 10
+                          ? "bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/30"
+                          : "bg-primary/10 text-primary border-primary/20"
+                      )}
+                      title={`Tempo restante: ${remainingSeconds}s`}
+                    >
+                      <Timer className="w-3 h-3 shrink-0" />
+                      <span>{remainingSeconds}s</span>
+                    </span>
+                  )}
                 </div>
+
+                {/* Barra de Progresso do Cronômetro Anti-Stall */}
+                {state.roomSettings?.turnTimerEnabled && remainingSeconds !== null && (
+                  <div className="w-full h-1 bg-zinc-800/80 overflow-hidden shrink-0 mt-1 rounded-full">
+                    <div 
+                      className={cn(
+                        "h-full transition-all duration-200 ease-linear rounded-full",
+                        remainingSeconds > 10 ? "bg-primary" : remainingSeconds > 5 ? "bg-amber-500" : "bg-red-500 animate-pulse"
+                      )}
+                      style={{
+                        width: `${Math.min(100, Math.max(0, (remainingSeconds / (state.roomSettings.turnTimerDuration || 30)) * 100))}%`
+                      }}
+                    />
+                  </div>
+                )}
               </div>
 
               {/* Fallback de Botões Utilitários para Telas Mobile (lg:hidden) */}
               <div className="lg:hidden flex items-center gap-1 shrink-0">
+                {roomId && (
+                  <button 
+                    type="button"
+                    onClick={() => setIsShareModalOpen(true)}
+                    className="shrink-0 text-primary hover:text-primary/80 h-7 w-7 rounded-full hover:bg-muted/80 flex items-center justify-center transition-colors cursor-pointer"
+                    title="Compartilhar com QR Code"
+                    aria-label="Compartilhar com QR Code"
+                  >
+                    <QrCode className="w-3.5 h-3.5" />
+                  </button>
+                )}
                 {roomId && (
                   <CopyRoomButton 
                     roomId={roomId} 
@@ -491,6 +571,15 @@ export function GameBoard({
                   <span className="absolute -top-0.5 -right-0.5 bg-primary text-primary-foreground text-[8px] font-black w-3.5 h-3.5 rounded-full flex items-center justify-center">
                     {Object.keys(state.players).length}
                   </span>
+                </button>
+                <button 
+                  type="button"
+                  onClick={() => setIsSettingsModalOpen(true)}
+                  className="shrink-0 text-muted-foreground hover:text-foreground h-7 w-7 rounded-full hover:bg-muted/80 flex items-center justify-center transition-colors cursor-pointer"
+                  title="Configurações da sala"
+                  aria-label="Configurações da sala"
+                >
+                  <Settings className="w-3.5 h-3.5" />
                 </button>
                 <button 
                   type="button"
@@ -740,6 +829,27 @@ export function GameBoard({
               </span>
             </div>
           </button>
+
+          {/* Botão Configurações */}
+          <button
+            type="button"
+            onClick={() => setIsSettingsModalOpen(true)}
+            className="w-full flex items-center gap-3 p-3 rounded-2xl bg-zinc-900/60 hover:bg-zinc-800/80 active:scale-[0.98] border border-zinc-800/80 hover:border-primary/50 text-left transition-all cursor-pointer shadow-md group"
+          >
+            <div className="w-9 h-9 rounded-xl bg-zinc-700/20 text-zinc-300 flex items-center justify-center shrink-0 border border-zinc-700/40 group-hover:scale-105 transition-transform">
+              <Settings className="w-4 h-4" />
+            </div>
+            <div className="min-w-0">
+              <span className="block text-xs font-black text-zinc-200 tracking-tight group-hover:text-primary transition-colors">
+                Configurações
+              </span>
+              <span className="block text-[10px] text-zinc-400 truncate">
+                {state.roomSettings?.turnTimerEnabled
+                  ? `Anti-Stall: ${state.roomSettings.turnTimerDuration}s`
+                  : "Anti-Stall e regras"}
+              </span>
+            </div>
+          </button>
         </div>
 
         {/* Rodapé do Flanco Direito com Botão Sair */}
@@ -974,6 +1084,28 @@ export function GameBoard({
         onClose={() => setIsLeaderboardOpen(false)}
         roomLeaderboard={state.roomLeaderboard}
         currentRoomId={roomId}
+      />
+
+      {/* MODAL DE COMPARTILHAMENTO COM QR CODE */}
+      {roomId && (
+        <ShareRoomModal
+          isOpen={isShareModalOpen}
+          onClose={() => setIsShareModalOpen(false)}
+          roomId={roomId}
+        />
+      )}
+
+      {/* MODAL DE CONFIGURAÇÕES DA SALA */}
+      <RoomSettingsModal
+        isOpen={isSettingsModalOpen}
+        onClose={() => setIsSettingsModalOpen(false)}
+        settings={state.roomSettings}
+        isLeader={state.creatorId === myId}
+        onUpdateSettings={(newSettings) => {
+          if (onUpdateSettings) {
+            onUpdateSettings(newSettings);
+          }
+        }}
       />
 
     </div>
