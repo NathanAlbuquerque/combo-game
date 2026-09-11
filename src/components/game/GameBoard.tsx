@@ -8,6 +8,8 @@ import { CardPreviewModal } from "./CardPreviewModal";
 import { CopyRoomButton } from "./CopyRoomButton";
 import { ShareRoomModal } from "./ShareRoomModal";
 import { RoomSettingsModal } from "./RoomSettingsModal";
+import { ReactionPicker } from "./ReactionPicker";
+import { useFullscreen } from "@/hooks/useFullscreen";
 import { Button } from "@/components/ui/button";
 import {
   HelpCircle,
@@ -24,6 +26,8 @@ import {
   Settings,
   QrCode,
   Timer,
+  Maximize,
+  Minimize,
 } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
@@ -99,6 +103,7 @@ interface GameBoardProps {
   onResolvePendingAction?: (cardId: string) => void;
   onSkipExtraPlay?: () => void;
   onUpdateSettings?: (settings: Partial<RoomSettings>) => void;
+  onSendReaction?: (emoji: string) => void;
 }
 
 export function GameBoard({
@@ -111,7 +116,10 @@ export function GameBoard({
   onResolvePendingAction,
   onSkipExtraPlay,
   onUpdateSettings,
+  onSendReaction,
 }: GameBoardProps) {
+  const { isFullscreen, isSupported: isFullscreenSupported, toggleFullscreen } = useFullscreen();
+
   const [targetingCardId, setTargetingCardId] = useState<string | null>(null);
   const [isHelpOpen, setIsHelpOpen] = useState(false);
   const [isPlayersDrawerOpen, setIsPlayersDrawerOpen] = useState(false);
@@ -599,6 +607,17 @@ export function GameBoard({
                 >
                   <HelpCircle className="w-3.5 h-3.5" />
                 </button>
+                {isFullscreenSupported && (
+                  <button 
+                    type="button"
+                    onClick={toggleFullscreen}
+                    className="shrink-0 text-muted-foreground hover:text-foreground h-7 w-7 rounded-full hover:bg-muted/80 flex items-center justify-center transition-colors cursor-pointer"
+                    title={isFullscreen ? "Sair da tela cheia" : "Tela cheia"}
+                    aria-label={isFullscreen ? "Sair da tela cheia" : "Tela cheia"}
+                  >
+                    {isFullscreen ? <Minimize className="w-3.5 h-3.5" /> : <Maximize className="w-3.5 h-3.5" />}
+                  </button>
+                )}
               </div>
             </div>
 
@@ -702,6 +721,12 @@ export function GameBoard({
             ? "border-t-2 border-primary/70 shadow-[0_-8px_25px_-5px_rgba(var(--primary),0.3)]"
             : ""
         }`}>
+          {/* Seletor de Reações Rápidas Flutuante */}
+          {onSendReaction && (
+            <div className="absolute -top-4.5 right-3 z-30">
+              <ReactionPicker onSendReaction={onSendReaction} />
+            </div>
+          )}
           {isSpectator ? (
             <div className="h-full flex flex-col items-center justify-center p-4 text-center space-y-1.5 select-none bg-muted/10">
               <div className="w-8 h-8 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-600 dark:text-amber-400 flex items-center justify-center text-base">
@@ -850,6 +875,27 @@ export function GameBoard({
               </span>
             </div>
           </button>
+
+          {/* Botão Tela Cheia */}
+          {isFullscreenSupported && (
+            <button
+              type="button"
+              onClick={toggleFullscreen}
+              className="w-full flex items-center gap-3 p-3 rounded-2xl bg-zinc-900/60 hover:bg-zinc-800/80 active:scale-[0.98] border border-zinc-800/80 hover:border-zinc-500/50 text-left transition-all cursor-pointer shadow-md group"
+            >
+              <div className="w-9 h-9 rounded-xl bg-zinc-700/20 text-zinc-300 flex items-center justify-center shrink-0 border border-zinc-700/40 group-hover:scale-105 transition-transform">
+                {isFullscreen ? <Minimize className="w-4 h-4" /> : <Maximize className="w-4 h-4" />}
+              </div>
+              <div className="min-w-0">
+                <span className="block text-xs font-black text-zinc-200 tracking-tight group-hover:text-zinc-100 transition-colors">
+                  {isFullscreen ? "Sair da Tela Cheia" : "Tela Cheia"}
+                </span>
+                <span className="block text-[10px] text-zinc-400 truncate">
+                  {isFullscreen ? "Reduzir janela" : "Modo imersivo PWA"}
+                </span>
+              </div>
+            </button>
+          )}
         </div>
 
         {/* Rodapé do Flanco Direito com Botão Sair */}

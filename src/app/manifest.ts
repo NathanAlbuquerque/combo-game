@@ -1,0 +1,21 @@
+import type { MetadataRoute } from "next";
+
+export default function manifest(): MetadataRoute.Manifest {
+  return {
+    name: "Combo The Game",
+    short_name: "Combo",
+    description: "Jogo de cartas multiplayer de cidadania e segurança digital",
+    start_url: "/",
+    display: "standalone",
+    orientation: "portrait",
+    background_color: "#09090b",
+    theme_color: "#09090b",
+    icons: [
+      {
+        src: "/favicon.ico",
+        sizes: "any",
+        type: "image/x-icon",
+      },
+    ],
+  };
+}

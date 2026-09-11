@@ -117,9 +117,11 @@ export type ClientMessage =
   | { type: 'skip_extra_play' }
   | { type: 'end_turn' }
   | { type: 'return_to_lobby' }
-  | { type: 'update_room_settings'; settings: Partial<RoomSettings> };
+  | { type: 'update_room_settings'; settings: Partial<RoomSettings> }
+  | { type: 'send_reaction'; emoji: string };
 
 // Mensagens enviadas do servidor para o cliente
 export type ServerMessage = 
   | { type: 'sync'; state: GameState }
-  | { type: 'error'; message: string };
+  | { type: 'error'; message: string }
+  | { type: 'reaction_received'; id: string; emoji: string; senderName: string };

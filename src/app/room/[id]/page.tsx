@@ -11,6 +11,7 @@ import { CopyRoomButton } from "@/components/game/CopyRoomButton";
 import { MatchStatsModal } from "@/components/game/MatchStatsModal";
 import { ShareRoomModal } from "@/components/game/ShareRoomModal";
 import { RoomSettingsModal } from "@/components/game/RoomSettingsModal";
+import { FloatingReactionsOverlay, ActiveReaction } from "@/components/game/FloatingReactionsOverlay";
 
 function getOrCreatePlayerId(roomId: string): string {
   if (typeof window === "undefined") return "";
@@ -41,6 +42,7 @@ function RoomContent() {
   const [isStatsOpen, setIsStatsOpen] = useState(false);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
+  const [activeReactions, setActiveReactions] = useState<ActiveReaction[]>([]);
   const [stablePlayerId] = useState(() => getOrCreatePlayerId(roomId));
   const [currentTime, setCurrentTime] = useState(() => Date.now());
 
@@ -88,6 +90,22 @@ function RoomContent() {
       } else if (data.type === "sync") {
         setGameState(data.state);
         setErrorMsg(null);
+      } else if (data.type === "reaction_received") {
+        const item: ActiveReaction = {
+          id: data.id,
+          emoji: data.emoji,
+          senderName: data.senderName,
+          xOffset: (Math.random() - 0.5) * 50,
+          x1: (Math.random() - 0.5) * 36,
+          x2: (Math.random() - 0.5) * 44,
+          x3: (Math.random() - 0.5) * 36,
+          x4: (Math.random() - 0.5) * 20,
+          rot: (Math.random() - 0.5) * 26,
+        };
+        setActiveReactions((prev) => [...prev.slice(-20), item]);
+        setTimeout(() => {
+          setActiveReactions((prev) => prev.filter((r) => r.id !== item.id));
+        }, 2600);
       }
     }
   });
@@ -235,6 +253,8 @@ function RoomContent() {
     socket.send(JSON.stringify({ type: "skip_extra_play" }));
   const handleUpdateSettings = (settings: Partial<RoomSettings>) =>
     socket.send(JSON.stringify({ type: "update_room_settings", settings }));
+  const handleSendReaction = (emoji: string) =>
+    socket.send(JSON.stringify({ type: "send_reaction", emoji }));
 
   // ESTADO: LOBBY
   if (gameState.status === "lobby") {
@@ -497,7 +517,9 @@ function RoomContent() {
         onResolvePendingAction={handleResolvePendingAction}
         onSkipExtraPlay={handleSkipExtraPlay}
         onUpdateSettings={handleUpdateSettings}
+        onSendReaction={handleSendReaction}
       />
+      <FloatingReactionsOverlay reactions={activeReactions} />
     </>
   );
 }

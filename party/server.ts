@@ -62,6 +62,7 @@ export default class MainServer implements Party.Server {
   private globalLeaderboard: Map<string, PlayerRankEntry> = new Map();
   private leaderboardLastResetAt: number = Date.now();
   private matchRecorded: boolean = false;
+  private reactionTimestamps: Map<string, number[]> = new Map();
 
   constructor(readonly room: Party.Room) {
     this.state = {
@@ -1591,6 +1592,35 @@ export default class MainServer implements Party.Server {
           : "desativado";
         this.addLog(`⚙️ Configurações da sala atualizadas: Anti-Stall ${timerDesc}.`);
         this.broadcastSync();
+        return;
+      }
+
+      // ==========================================
+      // REAÇÕES RÁPIDAS COM EMOJIS FLUTUANTES
+      // ==========================================
+      if (parsed.type === "send_reaction") {
+        if (!parsed.emoji || typeof parsed.emoji !== "string") return;
+
+        const now = Date.now();
+        const timestamps = (this.reactionTimestamps.get(sender.id) || []).filter(t => now - t < 2000);
+        if (timestamps.length >= 3) {
+          // Rate-limit: Máximo de 3 reações a cada 2 segundos por conexão
+          return;
+        }
+        timestamps.push(now);
+        this.reactionTimestamps.set(sender.id, timestamps);
+
+        const senderPlayer = this.state.players[myPlayerId];
+        const senderName = senderPlayer?.name ? senderPlayer.name.split(" ")[0] : "Alguém";
+
+        const reactionMsg: ServerMessage = {
+          type: "reaction_received",
+          id: `rx_${now}_${Math.random().toString(36).substring(2, 7)}`,
+          emoji: parsed.emoji,
+          senderName,
+        };
+
+        this.room.broadcast(JSON.stringify(reactionMsg));
         return;
       }
 
