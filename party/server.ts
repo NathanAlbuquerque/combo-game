@@ -1,5 +1,5 @@
 import type * as Party from "partykit/server";
-import { GameState, ClientMessage, ServerMessage, Card, Player, MatchStats, RoomSummary, PlayerRankEntry, LeaderboardData } from "../src/types/game";
+import { GameState, ClientMessage, ServerMessage, Card, Player, MatchStats, RoomSummary, PlayerRankEntry, LeaderboardData, RoomSettings } from "../src/types/game";
 import { OBJECT_CARDS_DATA, EFFECTS_CARDS_DATA } from "../src/data/cards";
 
 function shuffleDeck<T>(array: T[]): T[] {
@@ -81,6 +81,11 @@ export default class MainServer implements Party.Server {
       revealedPlayerUntilTurn: {},
       stats: null,
       roomLeaderboard: {},
+      roomSettings: {
+        turnTimerEnabled: false,
+        turnTimerDuration: 30,
+      },
+      turnExpiresAt: undefined,
     };
   }
 
@@ -480,6 +485,112 @@ export default class MainServer implements Party.Server {
     }
   }
 
+  private turnTimeout: ReturnType<typeof setTimeout> | null = null;
+
+  private clearTurnTimer() {
+    if (this.turnTimeout) {
+      clearTimeout(this.turnTimeout);
+      this.turnTimeout = null;
+    }
+    this.state.turnExpiresAt = undefined;
+  }
+
+  private resetTurnTimer() {
+    this.clearTurnTimer();
+    if (!this.state.roomSettings?.turnTimerEnabled || this.state.status !== "playing") {
+      return;
+    }
+
+    const durationSec = this.state.roomSettings.turnTimerDuration || 30;
+    this.state.turnExpiresAt = Date.now() + durationSec * 1000;
+
+    this.turnTimeout = setTimeout(() => {
+      this.handleTurnTimeout();
+    }, durationSec * 1000);
+  }
+
+  private handleTurnTimeout() {
+    this.turnTimeout = null;
+    this.state.turnExpiresAt = undefined;
+
+    if (this.state.status !== "playing") {
+      return;
+    }
+
+    // 1. Caso haja ação pendente na mesa (ex: Phishing ou LI E ACEITO!)
+    if (this.state.pendingAction) {
+      const pAction = this.state.pendingAction;
+      const targetPlayer = this.state.players[pAction.requiredPlayerId];
+      const initiatorPlayer = this.state.players[pAction.initiatorPlayerId];
+
+      if (targetPlayer && targetPlayer.hand.length > 0) {
+        const chosenCard = targetPlayer.hand.splice(0, 1)[0];
+        if (pAction.type === 'CHOOSE_CARD_TO_DISCARD') {
+          this.state.discard.push(chosenCard);
+          this.addLog(`⏱️ Tempo esgotado! ${targetPlayer.name} descartou automaticamente "${chosenCard.name || 'Carta'}".`);
+        } else if (pAction.type === 'CHOOSE_CARD_TO_GIVE') {
+          if (initiatorPlayer && !initiatorPlayer.isEliminated) {
+            initiatorPlayer.hand.push(chosenCard);
+            this.addLog(`⏱️ Tempo esgotado! ${targetPlayer.name} entregou automaticamente "${chosenCard.name || 'Carta'}" para ${initiatorPlayer.name}.`);
+          } else {
+            this.state.discard.push(chosenCard);
+            this.addLog(`⏱️ Tempo esgotado! ${targetPlayer.name} descartou automaticamente "${chosenCard.name || 'Carta'}".`);
+          }
+        }
+      }
+
+      this.state.pendingAction = null;
+      this.checkEliminations();
+      this.passTurn();
+      this.broadcastSync();
+      return;
+    }
+
+    // 2. Caso haja jogada extra pendente (Prompt Perfeito)
+    if (this.state.extraPlayPlayerId) {
+      const me = this.state.players[this.state.extraPlayPlayerId];
+      this.state.extraPlayPlayerId = null;
+      if (me) {
+        this.addLog(`⏱️ Tempo esgotado! A jogada extra de ${me.name} foi encerrada.`);
+      }
+      this.passTurn();
+      this.broadcastSync();
+      return;
+    }
+
+    // 3. Turno normal do jogador da vez
+    if (!this.state.currentTurnPlayerId) {
+      this.passTurn();
+      this.broadcastSync();
+      return;
+    }
+
+    const me = this.state.players[this.state.currentTurnPlayerId];
+    if (!me || me.isEliminated || me.isSpectating) {
+      this.passTurn();
+      this.broadcastSync();
+      return;
+    }
+
+    // Ação segura: compra 1 carta do baralho ou descarta a última da mão
+    const card = this.drawOneCard();
+    if (card) {
+      me.hand.push(card);
+      this.recordCardDrawn(me.id);
+      this.addLog(`⏱️ Tempo esgotado! ${me.name} comprou 1 carta automaticamente e passou a vez.`);
+    } else if (me.hand.length > 0) {
+      const discarded = me.hand.pop()!;
+      this.state.discard.push(discarded);
+      this.addLog(`⏱️ Tempo esgotado e deck vazio! ${me.name} descartou "${discarded.name || 'Carta'}" e passou a vez.`);
+    } else {
+      this.addLog(`⏱️ Tempo esgotado! ${me.name} passou a vez.`);
+    }
+
+    this.checkEliminations();
+    this.passTurn();
+    this.broadcastSync();
+  }
+
   private startGame() {
     this.clearAutoStartTimer();
     this.matchRecorded = false;
@@ -527,6 +638,11 @@ export default class MainServer implements Party.Server {
     };
 
     this.addLog("A partida começou!");
+    if (this.state.roomSettings?.turnTimerEnabled) {
+      this.resetTurnTimer();
+    } else {
+      this.clearTurnTimer();
+    }
     this.notifyRegistry();
     this.broadcastSync();
   }
@@ -700,6 +816,12 @@ export default class MainServer implements Party.Server {
     if (this.state.stats) {
       this.state.stats.totalTurns++;
     }
+
+    if (this.state.status === "playing" && this.state.roomSettings?.turnTimerEnabled) {
+      this.resetTurnTimer();
+    } else {
+      this.clearTurnTimer();
+    }
   }
 
   private checkEliminations(): boolean {
@@ -726,6 +848,7 @@ export default class MainServer implements Party.Server {
     if (activePlayers === 1 && lastActiveId) {
       this.state.winnerId = lastActiveId;
       this.state.status = 'finished';
+      this.clearTurnTimer();
       if (this.state.stats && !this.state.stats.finishedAt) {
         this.state.stats.finishedAt = Date.now();
       }
@@ -736,6 +859,7 @@ export default class MainServer implements Party.Server {
     
     if (activePlayers === 0) {
       this.state.status = 'finished';
+      this.clearTurnTimer();
       if (this.state.stats && !this.state.stats.finishedAt) {
         this.state.stats.finishedAt = Date.now();
       }
@@ -764,6 +888,7 @@ export default class MainServer implements Party.Server {
     if (uniqueCategories.size + jokersCount >= 5) {
       this.state.winnerId = playerId;
       this.state.status = 'finished';
+      this.clearTurnTimer();
       if (this.state.stats && !this.state.stats.finishedAt) {
         this.state.stats.finishedAt = Date.now();
       }
@@ -1380,6 +1505,8 @@ export default class MainServer implements Party.Server {
           this.checkEliminations();
           if (!hasWon && endsTurn) {
             this.passTurn();
+          } else if (!hasWon && !endsTurn && this.state.roomSettings?.turnTimerEnabled) {
+            this.resetTurnTimer();
           }
           this.broadcastSync();
           return;
@@ -1394,6 +1521,8 @@ export default class MainServer implements Party.Server {
           sender.send(JSON.stringify({ type: "error", message: "A partida precisa terminar primeiro." }));
           return;
         }
+
+        this.clearTurnTimer();
 
         // Reseta tudo, mantém os jogadores conectados
         this.state.status = "lobby";
@@ -1424,6 +1553,44 @@ export default class MainServer implements Party.Server {
         this.checkAutoStartTimer();
         this.notifyRegistry();
         this.syncState();
+        return;
+      }
+
+      // ==========================================
+      // ATUALIZAR CONFIGURAÇÕES DA SALA (Líder)
+      // ==========================================
+      if (parsed.type === "update_room_settings") {
+        if (myPlayerId !== this.state.creatorId) {
+          sender.send(JSON.stringify({
+            type: "error",
+            message: "Apenas o líder da sala pode alterar as configurações.",
+          }));
+          return;
+        }
+
+        const currentSettings: RoomSettings = this.state.roomSettings || {
+          turnTimerEnabled: false,
+          turnTimerDuration: 30,
+        };
+
+        this.state.roomSettings = {
+          ...currentSettings,
+          ...parsed.settings,
+        };
+
+        if (this.state.status === "playing") {
+          if (this.state.roomSettings.turnTimerEnabled) {
+            this.resetTurnTimer();
+          } else {
+            this.clearTurnTimer();
+          }
+        }
+
+        const timerDesc = this.state.roomSettings.turnTimerEnabled
+          ? `ativado (${this.state.roomSettings.turnTimerDuration}s)`
+          : "desativado";
+        this.addLog(`⚙️ Configurações da sala atualizadas: Anti-Stall ${timerDesc}.`);
+        this.broadcastSync();
         return;
       }
 

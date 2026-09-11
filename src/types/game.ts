@@ -78,6 +78,11 @@ export type LeaderboardData = {
   lastResetAt: number;
 };
 
+export type RoomSettings = {
+  turnTimerEnabled: boolean;
+  turnTimerDuration: number; // Ex: 30 segundos
+};
+
 export interface GameState {
   status: 'lobby' | 'playing' | 'finished';
   players: Record<string, Player>;
@@ -88,6 +93,8 @@ export interface GameState {
   winnerId: string | null;
   turnOrder?: string[]; // Ordem sequencial oficial da rodada
   autoStartAt?: number; // Timestamp de início automático no lobby (60s)
+  turnExpiresAt?: number; // Timestamp de expiração do turno atual (Anti-Stall)
+  roomSettings?: RoomSettings; // Configurações da sala gerenciadas pelo líder
   
   actionLog: string[]; // Histórico de eventos
   pendingAction: PendingAction | null; // Interrupção do fluxo de turno
@@ -109,7 +116,8 @@ export type ClientMessage =
   | { type: 'resolve_pending_action'; cardId: string }
   | { type: 'skip_extra_play' }
   | { type: 'end_turn' }
-  | { type: 'return_to_lobby' };
+  | { type: 'return_to_lobby' }
+  | { type: 'update_room_settings'; settings: Partial<RoomSettings> };
 
 // Mensagens enviadas do servidor para o cliente
 export type ServerMessage = 
