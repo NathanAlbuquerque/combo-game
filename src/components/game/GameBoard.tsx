@@ -89,7 +89,6 @@ interface GameBoardProps {
   roomId?: string;
   onDraw: () => void;
   onPlay: (cardId: string, targetId?: string) => void;
-  onTrade: (targetPlayerId: string) => void;
   onDiscard: (cardId: string) => void;
   onResolvePendingAction?: (cardId: string) => void;
   onSkipExtraPlay?: () => void;
@@ -101,12 +100,10 @@ export function GameBoard({
   roomId,
   onDraw,
   onPlay,
-  onTrade,
   onDiscard,
   onResolvePendingAction,
   onSkipExtraPlay,
 }: GameBoardProps) {
-  const [tradingMode, setTradingMode] = useState(false);
   const [targetingCardId, setTargetingCardId] = useState<string | null>(null);
   const [isHelpOpen, setIsHelpOpen] = useState(false);
   const [isPlayersDrawerOpen, setIsPlayersDrawerOpen] = useState(false);
@@ -217,7 +214,6 @@ export function GameBoard({
     ];
     if (card.type === 'effect' && card.name && targetEffects.includes(card.name)) {
       setTargetingCardId(cardId);
-      setTradingMode(false); // desliga o trade se estivesse on
     } else {
       onPlay(cardId);
     }
@@ -257,15 +253,11 @@ export function GameBoard({
     if (targetingCardId) {
       onPlay(targetingCardId, targetId);
       setTargetingCardId(null);
-    } else if (tradingMode) {
-      onTrade(targetId);
-      setTradingMode(false);
     }
   };
 
   const cancelTargeting = () => {
     setTargetingCardId(null);
-    setTradingMode(false);
   };
 
   return (
@@ -406,9 +398,6 @@ export function GameBoard({
                   if (targetingCardId && isActiveTurn && !opp.isEliminated && !isSpectator) {
                     actionLabel = "Usar Efeito";
                     canClick = true;
-                  } else if (tradingMode && isActiveTurn && opp.hand.length > 0 && me.hand.length > 0 && !opp.isEliminated && !isSpectator) {
-                    actionLabel = "Trocar";
-                    canClick = true;
                   }
 
                   return (
@@ -461,10 +450,6 @@ export function GameBoard({
                   ) : targetingCardId ? (
                     <span className="text-primary font-black animate-pulse text-xs truncate">
                       🎯 Escolha o oponente no topo!
-                    </span>
-                  ) : tradingMode ? (
-                    <span className="text-primary font-black animate-pulse text-xs truncate">
-                      🔄 Escolha o oponente para trocar!
                     </span>
                   ) : isMyExtraPlay ? (
                     <span className="text-violet-600 dark:text-violet-400 font-black animate-pulse text-xs truncate flex items-center gap-1">
@@ -575,24 +560,15 @@ export function GameBoard({
                 </div>
               </div>
               
-              {/* Controles Extras (Modo Troca / Targeting) */}
+              {/* Controles Extras (Targeting) */}
               <div className="h-7 flex items-center justify-center">
-                {(targetingCardId || tradingMode) ? (
+                {targetingCardId && (
                   <div className="flex items-center gap-2">
-                    <Button variant="outline" size="sm" onClick={cancelTargeting} className="h-7 text-xs font-bold border-destructive text-destructive hover:bg-destructive hover:text-destructive-foreground">
+                    <Button variant="outline" size="sm" onClick={cancelTargeting} className="h-7 text-xs font-bold border-destructive text-destructive hover:bg-destructive hover:text-destructive-foreground cursor-pointer">
                       Cancelar Escolha
                     </Button>
                   </div>
-                ) : isActiveTurn && !isMyExtraPlay && me.hand.length > 0 && opponents.length > 0 ? (
-                  <Button 
-                    variant="outline"
-                    size="sm"
-                    className="h-7 text-xs font-bold shadow-xs hover:bg-primary/10 hover:text-primary cursor-pointer"
-                    onClick={() => setTradingMode(true)}
-                  >
-                    Trocar Carta (Trade)
-                  </Button>
-                ) : null}
+                )}
               </div>
             </div>
 
@@ -600,7 +576,7 @@ export function GameBoard({
             <div className="h-[210px] sm:h-[230px] border-t bg-card/40 flex flex-col p-2.5 shrink-0 shadow-inner">
               <div className="flex items-center justify-between px-1 mb-1.5 shrink-0">
                 <span className="text-[11px] font-black text-foreground uppercase tracking-widest flex items-center gap-1.5">
-                  Meus Objetos na Mesa ({me.objectArea.length}/6)
+                  Meus Objetos na Mesa ({me.objectArea.length}/5)
                 </span>
                 {me.objectArea.length > 0 && (
                   <span className="text-[9.5px] text-muted-foreground font-semibold flex items-center gap-1">
@@ -863,7 +839,7 @@ export function GameBoard({
                       <div className="overflow-hidden">
                         <span className="font-bold text-sm text-foreground block truncate">{opp.name}</span>
                         <span className="text-[11px] text-muted-foreground">
-                          {opp.hand.length} carta(s) na mão • {opp.objectArea.length} objeto(s)
+                          {opp.hand.length} carta(s) na mão • {opp.objectArea.length}/5 objeto(s)
                         </span>
                       </div>
                     </div>
@@ -908,7 +884,7 @@ export function GameBoard({
               <div>
                 <strong className="text-foreground block mb-1">2. No Seu Turno</strong>
                 <p className="text-muted-foreground leading-snug">
-                  Você pode escolher uma ação: comprar uma carta do deck principal, jogar (baixar um objeto novo na mesa ou ativar um efeito da sua mão) ou trocar cartas.
+                  Você pode escolher uma ação: comprar uma carta do deck principal ou jogar (baixar um objeto novo na mesa ou ativar um efeito da sua mão).
                 </p>
               </div>
               
@@ -943,7 +919,7 @@ export function GameBoard({
                   Mesa de {inspectingPlayer.name}
                 </h3>
                 <p className="text-xs text-muted-foreground">
-                  {inspectingPlayer.objectArea.length} objeto(s) baixado(s) • {inspectingPlayer.hand.length} carta(s) na mão
+                  {inspectingPlayer.objectArea.length}/5 objeto(s) baixado(s) • {inspectingPlayer.hand.length} carta(s) na mão
                 </p>
               </div>
             </div>

@@ -800,35 +800,52 @@ export default class MainServer implements Party.Server {
         const rawPlayerId = parsed.playerId?.trim();
         const trimmedName = parsed.name.trim();
 
-        // 1. Tenta associar a um jogador já registrado (por ID estável ou pelo mesmo nome)
-        let existingPlayerId: string | undefined;
-
+        // 1. Tenta associar a um jogador já registrado (estritamente por playerId estável)
         if (rawPlayerId && this.state.players[rawPlayerId]) {
-          existingPlayerId = rawPlayerId;
-        } else {
-          const found = Object.values(this.state.players).find(
-            p => p.name.trim().toLowerCase() === trimmedName.toLowerCase()
-          );
-          if (found) {
-            existingPlayerId = found.id;
-          }
-        }
+          const player = this.state.players[rawPlayerId];
 
-        if (existingPlayerId) {
-          // Atualiza a conexão associada sem duplicar o jogador
-          const player = this.state.players[existingPlayerId];
+          // Se o jogador estiver renomeando, garante que o novo nome não colida com outro jogador
+          const nameConflict = Object.values(this.state.players).some(
+            p => p.id !== rawPlayerId && p.name.trim().toLowerCase() === trimmedName.toLowerCase()
+          );
+
+          if (nameConflict) {
+            sender.send(JSON.stringify({
+              type: "error",
+              message: "Este nome já está em uso nesta sala. Escolha outro!",
+            }));
+            sender.close(1008, "Name already in use");
+            return;
+          }
+
+          // Reutiliza a sessão existente do jogador com o mesmo playerId
           player.name = trimmedName;
 
-          const oldConnId = this.playerToConnectionId.get(existingPlayerId);
+          const oldConnId = this.playerToConnectionId.get(rawPlayerId);
           if (oldConnId && oldConnId !== sender.id) {
             this.connectionToPlayerId.delete(oldConnId);
           }
 
-          this.connectionToPlayerId.set(sender.id, existingPlayerId);
-          this.playerToConnectionId.set(existingPlayerId, sender.id);
+          this.connectionToPlayerId.set(sender.id, rawPlayerId);
+          this.playerToConnectionId.set(rawPlayerId, sender.id);
 
           this.notifyRegistry();
           this.broadcastSync();
+          return;
+        }
+
+        // 2. Novo jogador ou playerId diferente conectando
+        // Rejeita a entrada se o nome já estiver em uso na sala
+        const nameInUse = Object.values(this.state.players).some(
+          p => p.name.trim().toLowerCase() === trimmedName.toLowerCase()
+        );
+
+        if (nameInUse) {
+          sender.send(JSON.stringify({
+            type: "error",
+            message: "Este nome já está em uso nesta sala. Escolha outro!",
+          }));
+          sender.close(1008, "Name already in use");
           return;
         }
 
@@ -951,7 +968,7 @@ export default class MainServer implements Party.Server {
       // ==========================================
       // LÓGICA DE TURNO E AÇÕES NORMAIS
       // ==========================================
-      const gameActions = ["draw_card", "play_card", "play_effect", "trade_card"];
+      const gameActions = ["draw_card", "play_card", "play_effect"];
       if (gameActions.includes(parsed.type)) {
         if (this.state.status !== "playing") {
           sender.send(JSON.stringify({ type: "error", message: "O jogo não está em andamento." }));
@@ -974,8 +991,8 @@ export default class MainServer implements Party.Server {
           return;
         }
 
-        // Se estiver na jogada extra, não pode comprar nem trocar
-        if (this.state.extraPlayPlayerId === me.id && (parsed.type === "draw_card" || parsed.type === "trade_card")) {
+        // Se estiver na jogada extra, não pode comprar cartas
+        if (this.state.extraPlayPlayerId === me.id && parsed.type === "draw_card") {
           sender.send(JSON.stringify({ type: "error", message: "Durante a jogada extra do Prompt Perfeito, baixe um novo Objeto ou finalize o turno." }));
           return;
         }
@@ -990,43 +1007,6 @@ export default class MainServer implements Party.Server {
             this.recordCardDrawn(me.id);
             this.addLog(`${me.name} comprou uma carta do baralho.`);
           }
-          this.checkEliminations();
-          this.passTurn();
-          this.broadcastSync();
-          return;
-        }
-
-        // -------------------------
-        // TROCAR (TRADE)
-        // -------------------------
-        if (parsed.type === "trade_card") {
-          const target = this.state.players[parsed.targetPlayerId];
-          if (!target || target.isSpectating) {
-            sender.send(JSON.stringify({ type: "error", message: "Jogador alvo não encontrado ou em modo espectador." }));
-            return;
-          }
-          
-          if (me.id === target.id) {
-             sender.send(JSON.stringify({ type: "error", message: "Você não pode trocar cartas com você mesmo." }));
-             return;
-          }
-
-          if (me.hand.length === 0 || target.hand.length === 0) {
-            sender.send(JSON.stringify({ type: "error", message: "Ambos os jogadores devem possuir cartas na mão para a troca." }));
-            return;
-          }
-
-          const myCardIndex = Math.floor(Math.random() * me.hand.length);
-          const targetCardIndex = Math.floor(Math.random() * target.hand.length);
-
-          const myCard = me.hand.splice(myCardIndex, 1)[0];
-          const targetCard = target.hand.splice(targetCardIndex, 1)[0];
-
-          me.hand.push(targetCard);
-          target.hand.push(myCard);
-
-          this.addLog(`${me.name} realizou uma troca aleatória de cartas com ${target.name}.`);
-
           this.checkEliminations();
           this.passTurn();
           this.broadcastSync();

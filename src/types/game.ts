@@ -105,7 +105,6 @@ export type ClientMessage =
   | { type: 'draw_card' }
   | { type: 'play_card'; cardId: string; targetId?: string; targetPlayerId?: string }
   | { type: 'play_effect'; cardId: string; targetPlayerId?: string; targetId?: string }
-  | { type: 'trade_card'; targetPlayerId: string }
   | { type: 'discard_card'; cardId: string }
   | { type: 'resolve_pending_action'; cardId: string }
   | { type: 'skip_extra_play' }

@@ -167,7 +167,7 @@ export function RoomPlayersDrawer({
                         </span>
                         <span className="flex items-center gap-1">
                           <span className="text-sm">🧩</span>
-                          <strong>{player.objectArea.length}/6</strong> na mesa
+                          <strong>{player.objectArea.length}/5</strong> na mesa
                         </span>
                       </div>
                     </div>

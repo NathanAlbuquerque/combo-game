@@ -76,7 +76,7 @@ export function OpponentView({
       {/* Área de Objetos da Mesa (Visualização completa com scroll horizontal sem ocultar "+1") */}
       <div className="w-full bg-black/5 dark:bg-white/5 rounded-xl p-1.5 border border-border/40 shrink-0">
         <div className="flex items-center justify-between px-1 mb-1 text-[9px] text-muted-foreground uppercase font-bold tracking-wider">
-          <span>Mesa ({player.objectArea.length})</span>
+          <span>Mesa ({player.objectArea.length}/5)</span>
           {player.objectArea.length > 0 && (
             <span className="text-[8.5px] lowercase font-normal opacity-75">role ➔</span>
           )}

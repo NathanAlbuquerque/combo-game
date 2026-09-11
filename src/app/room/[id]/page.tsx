@@ -176,10 +176,28 @@ function RoomContent() {
         <div className="w-full max-w-[440px] sm:max-w-[480px] min-h-[100dvh] bg-background shadow-2xl relative flex flex-col justify-center items-center p-6 border-x border-border/40">
           <div className="bg-destructive text-destructive-foreground p-6 rounded-2xl max-w-sm text-center shadow-lg w-full">
             <h2 className="text-xl font-bold mb-2">Erro</h2>
-            <p className="mb-4 text-sm">{errorMsg}</p>
-            <Button variant="secondary" onClick={() => router.push("/")} className="w-full font-bold">
-              Voltar para o Início
-            </Button>
+            <p className="mb-4 text-sm font-medium">{errorMsg}</p>
+            <div className="flex flex-col gap-2">
+              <Button
+                variant="secondary"
+                onClick={() => {
+                  setErrorMsg(null);
+                  setPlayerName("");
+                  setInputName("");
+                  router.replace(`/room/${roomId}`);
+                }}
+                className="w-full font-bold cursor-pointer"
+              >
+                Escolher Outro Nome
+              </Button>
+              <Button
+                variant="ghost"
+                onClick={() => router.push("/")}
+                className="w-full text-xs text-destructive-foreground/80 hover:text-destructive-foreground cursor-pointer"
+              >
+                Voltar para o Início
+              </Button>
+            </div>
           </div>
         </div>
       </div>
@@ -205,8 +223,6 @@ function RoomContent() {
   const handleDraw = () => socket.send(JSON.stringify({ type: "draw_card" }));
   const handlePlay = (cardId: string, targetId?: string) =>
     socket.send(JSON.stringify({ type: "play_card", cardId, targetId, targetPlayerId: targetId }));
-  const handleTrade = (targetPlayerId: string) =>
-    socket.send(JSON.stringify({ type: "trade_card", targetPlayerId }));
   const handleDiscard = (cardId: string) =>
     socket.send(JSON.stringify({ type: "discard_card", cardId }));
   const handleResolvePendingAction = (cardId: string) =>
@@ -409,7 +425,6 @@ function RoomContent() {
         roomId={roomId}
         onDraw={handleDraw}
         onPlay={handlePlay}
-        onTrade={handleTrade}
         onDiscard={handleDiscard}
         onResolvePendingAction={handleResolvePendingAction}
         onSkipExtraPlay={handleSkipExtraPlay}
