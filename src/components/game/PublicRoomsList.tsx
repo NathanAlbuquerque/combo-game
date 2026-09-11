@@ -7,11 +7,11 @@ import { RoomSummary } from "@/types/game";
 import { Button } from "@/components/ui/button";
 
 interface PublicRoomsListProps {
-  playerName: string;
+  playerName?: string;
   onRequireName?: () => void;
 }
 
-export function PublicRoomsList({ playerName }: PublicRoomsListProps) {
+export function PublicRoomsList({ playerName = "" }: PublicRoomsListProps) {
   const router = useRouter();
   const [rooms, setRooms] = useState<RoomSummary[]>([]);
   const [isLoading, setIsLoading] = useState(true);

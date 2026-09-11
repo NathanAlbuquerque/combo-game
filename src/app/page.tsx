@@ -3,19 +3,16 @@
 import { useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { Button } from "@/components/ui/button";
-import { BookOpen, Trophy } from "lucide-react";
-import { PublicRoomsList } from "@/components/game/PublicRoomsList";
+import { Gamepad2, DoorOpen, Trophy, BookOpen, Sparkles, ChevronRight } from "lucide-react";
 import { LeaderboardModal } from "@/components/game/LeaderboardModal";
+import { JoinRoomModal } from "@/components/game/JoinRoomModal";
 
 function HomeContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const initialRoom = (searchParams.get("room") || searchParams.get("code") || "").toUpperCase();
 
-  const [playerName, setPlayerName] = useState("");
-  const [roomCode, setRoomCode] = useState(initialRoom);
-  const [error, setError] = useState("");
+  const [isJoinModalOpen, setIsJoinModalOpen] = useState(() => Boolean(initialRoom));
   const [isLeaderboardOpen, setIsLeaderboardOpen] = useState(false);
 
   const generateRoomCode = () => {
@@ -28,123 +25,130 @@ function HomeContent() {
   };
 
   const handleCreateRoom = () => {
-    if (!playerName.trim()) {
-      setError("Por favor, digite seu nome primeiro.");
-      return;
-    }
     const code = generateRoomCode();
-    router.push(`/room/${code}?name=${encodeURIComponent(playerName.trim())}`);
-  };
-
-  const handleJoinRoom = () => {
-    if (!playerName.trim()) {
-      setError("Por favor, digite seu nome primeiro.");
-      return;
-    }
-    const cleanCode = roomCode.trim().toUpperCase();
-    if (!cleanCode || cleanCode.length !== 6) {
-      setError("Por favor, digite um código de sala válido (6 caracteres).");
-      return;
-    }
-    router.push(`/room/${cleanCode}?name=${encodeURIComponent(playerName.trim())}`);
+    router.push(`/room/${code}`);
   };
 
   return (
     <div className="min-h-screen w-full bg-zinc-950 bg-gradient-to-b from-zinc-900/60 via-zinc-950 to-black flex justify-center items-center overflow-x-hidden font-sans">
-      <div className="w-full max-w-[440px] sm:max-w-[480px] min-h-[100dvh] bg-background shadow-2xl relative flex flex-col items-center p-5 sm:p-6 overflow-y-auto border-x border-border/40">
-        <main className="w-full flex flex-col items-center justify-center gap-5 text-card-foreground my-auto py-4">
-          <div className="text-center">
-            <div className="inline-flex items-center justify-center px-3 py-1 rounded-full bg-primary/10 border border-primary/20 text-primary font-mono text-xs font-bold uppercase tracking-widest mb-3">
-              Cidadania & Segurança Digital
-            </div>
-            <h1 className="text-4xl font-black tracking-tight text-foreground">
-              Combo
-            </h1>
-            <p className="text-muted-foreground text-sm mt-1">
-              Jogo pedagógico de cartas multiplayer
-            </p>
+      <div className="w-full max-w-[440px] sm:max-w-[480px] min-h-[100dvh] bg-background shadow-2xl relative flex flex-col justify-between p-6 sm:p-8 overflow-y-auto border-x border-border/40">
+        {/* Header com Identidade Visual */}
+        <header className="w-full flex flex-col items-center text-center pt-8 sm:pt-12">
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-primary/10 border border-primary/20 text-primary font-mono text-[11px] font-bold uppercase tracking-widest mb-3 shadow-xs">
+            <Sparkles className="w-3.5 h-3.5" />
+            <span>Cidadania & Segurança Digital</span>
           </div>
 
-          <div className="w-full space-y-4">
-            <div className="space-y-2">
-              <label htmlFor="playerName" className="text-sm font-medium">
-                Seu Nome
-              </label>
-              <input
-                id="playerName"
-                type="text"
-                value={playerName}
-                onChange={(e) => {
-                  setPlayerName(e.target.value);
-                  setError("");
-                }}
-                placeholder="Ex: Maria"
-                className="w-full p-2.5 rounded-xl border bg-background text-sm"
-              />
-            </div>
+          <h1 className="text-5xl font-black tracking-tight text-foreground drop-shadow-xs">
+            Combo
+          </h1>
+          <p className="text-muted-foreground text-sm mt-1.5 font-medium max-w-[280px]">
+            Jogo pedagógico de cartas multiplayer
+          </p>
+        </header>
 
-            {error && <p className="text-sm text-red-500 font-medium">{error}</p>}
-
-            <div className="pt-4 border-t space-y-4">
-              <Button onClick={handleCreateRoom} className="w-full font-bold h-11 text-base">
-                Criar Nova Sala
-              </Button>
-
-              <div className="relative my-4">
-                <div className="absolute inset-0 flex items-center">
-                  <span className="w-full border-t" />
-                </div>
-                <div className="relative flex justify-center text-xs uppercase">
-                  <span className="bg-background px-2 text-muted-foreground font-semibold">Ou</span>
-                </div>
+        {/* Menu Principal com 4 Ações Claras */}
+        <main className="w-full space-y-3.5 my-auto py-8">
+          {/* Botão 1: Criar Sala (Destaque Primário) */}
+          <button
+            type="button"
+            onClick={handleCreateRoom}
+            className="w-full group relative flex items-center justify-between p-4 rounded-2xl bg-primary text-primary-foreground font-bold shadow-lg shadow-primary/20 hover:shadow-xl hover:shadow-primary/30 active:scale-[0.98] transition-all cursor-pointer text-left overflow-hidden border border-primary-foreground/10"
+          >
+            <div className="flex items-center gap-3.5 min-w-0">
+              <div className="w-11 h-11 rounded-xl bg-white/20 flex items-center justify-center shrink-0 shadow-xs">
+                <Gamepad2 className="w-6 h-6" />
               </div>
-
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  value={roomCode}
-                  onChange={(e) => {
-                    setRoomCode(e.target.value.toUpperCase());
-                    setError("");
-                  }}
-                  maxLength={6}
-                  placeholder="CÓDIGO (6)"
-                  className="w-full p-2.5 rounded-xl border bg-background uppercase text-center font-mono font-bold tracking-widest"
-                />
-                <Button onClick={handleJoinRoom} variant="secondary" className="font-bold h-11 px-5">
-                  Entrar
-                </Button>
-              </div>
-
-              {/* Seção: Salas Públicas Abertas */}
-              <div className="pt-1 border-t">
-                <PublicRoomsList playerName={playerName} />
-              </div>
-
-              <div className="pt-2 border-t grid grid-cols-2 gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setIsLeaderboardOpen(true)}
-                  className="w-full font-bold h-11 flex items-center justify-center gap-2 border-dashed hover:bg-muted/80 text-foreground cursor-pointer"
-                >
-                  <Trophy className="w-4 h-4 text-amber-500" />
-                  <span>Ranking</span>
-                </Button>
-
-                <Link href="/cartas" className="w-full block">
-                  <Button
-                    variant="outline"
-                    className="w-full font-bold h-11 flex items-center justify-center gap-2 border-dashed hover:bg-muted/80 text-foreground cursor-pointer"
-                  >
-                    <BookOpen className="w-4 h-4 text-primary" />
-                    <span>Ver Cartas</span>
-                  </Button>
-                </Link>
+              <div className="min-w-0">
+                <span className="block text-base font-extrabold tracking-tight">
+                  Criar Sala
+                </span>
+                <span className="block text-xs font-normal opacity-90 truncate">
+                  Inicie uma nova partida e convide amigos
+                </span>
               </div>
             </div>
-          </div>
+            <ChevronRight className="w-5 h-5 opacity-80 group-hover:translate-x-0.5 transition-transform shrink-0 ml-2" />
+          </button>
+
+          {/* Botão 2: Entrar em Sala */}
+          <button
+            type="button"
+            onClick={() => setIsJoinModalOpen(true)}
+            className="w-full group flex items-center justify-between p-4 rounded-2xl bg-card hover:bg-muted/60 active:scale-[0.98] border-2 border-border/80 hover:border-primary/40 text-card-foreground font-bold shadow-xs transition-all cursor-pointer text-left"
+          >
+            <div className="flex items-center gap-3.5 min-w-0">
+              <div className="w-11 h-11 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0 border border-primary/20">
+                <DoorOpen className="w-5 h-5" />
+              </div>
+              <div className="min-w-0">
+                <span className="block text-base font-extrabold tracking-tight text-foreground">
+                  Entrar em Sala
+                </span>
+                <span className="block text-xs font-normal text-muted-foreground truncate">
+                  Por código da mesa ou lista aberta
+                </span>
+              </div>
+            </div>
+            <ChevronRight className="w-5 h-5 text-muted-foreground group-hover:text-foreground group-hover:translate-x-0.5 transition-transform shrink-0 ml-2" />
+          </button>
+
+          {/* Botão 3: Ranking */}
+          <button
+            type="button"
+            onClick={() => setIsLeaderboardOpen(true)}
+            className="w-full group flex items-center justify-between p-4 rounded-2xl bg-card hover:bg-muted/60 active:scale-[0.98] border border-border/80 hover:border-amber-500/40 text-card-foreground font-bold shadow-xs transition-all cursor-pointer text-left"
+          >
+            <div className="flex items-center gap-3.5 min-w-0">
+              <div className="w-11 h-11 rounded-xl bg-amber-500/10 text-amber-500 flex items-center justify-center shrink-0 border border-amber-500/20">
+                <Trophy className="w-5 h-5" />
+              </div>
+              <div className="min-w-0">
+                <span className="block text-base font-extrabold tracking-tight text-foreground">
+                  Ranking
+                </span>
+                <span className="block text-xs font-normal text-muted-foreground truncate">
+                  Classificação global diária e recordes
+                </span>
+              </div>
+            </div>
+            <ChevronRight className="w-5 h-5 text-muted-foreground group-hover:text-foreground group-hover:translate-x-0.5 transition-transform shrink-0 ml-2" />
+          </button>
+
+          {/* Botão 4: Cartas (Enciclopédia) */}
+          <Link
+            href="/cartas"
+            className="w-full group flex items-center justify-between p-4 rounded-2xl bg-card hover:bg-muted/60 active:scale-[0.98] border border-border/80 hover:border-blue-500/40 text-card-foreground font-bold shadow-xs transition-all cursor-pointer text-left block"
+          >
+            <div className="flex items-center gap-3.5 min-w-0">
+              <div className="w-11 h-11 rounded-xl bg-blue-500/10 text-blue-500 flex items-center justify-center shrink-0 border border-blue-500/20">
+                <BookOpen className="w-5 h-5" />
+              </div>
+              <div className="min-w-0">
+                <span className="block text-base font-extrabold tracking-tight text-foreground">
+                  Cartas
+                </span>
+                <span className="block text-xs font-normal text-muted-foreground truncate">
+                  Enciclopédia completa de cartas e efeitos
+                </span>
+              </div>
+            </div>
+            <ChevronRight className="w-5 h-5 text-muted-foreground group-hover:text-foreground group-hover:translate-x-0.5 transition-transform shrink-0 ml-2" />
+          </Link>
         </main>
+
+        {/* Rodapé sutil */}
+        <footer className="w-full pb-4 pt-2 text-center text-[11px] text-muted-foreground">
+          Combo The Game • Conscientização Digital
+        </footer>
+
+        {/* Modais */}
+        <JoinRoomModal
+          key={isJoinModalOpen ? "open" : "closed"}
+          isOpen={isJoinModalOpen}
+          onClose={() => setIsJoinModalOpen(false)}
+          initialCode={initialRoom}
+        />
 
         <LeaderboardModal
           isOpen={isLeaderboardOpen}
@@ -157,7 +161,13 @@ function HomeContent() {
 
 export default function Home() {
   return (
-    <Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-zinc-50 dark:bg-black font-sans">Carregando...</div>}>
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center bg-zinc-950 text-muted-foreground font-sans text-sm">
+          Carregando...
+        </div>
+      }
+    >
       <HomeContent />
     </Suspense>
   );
