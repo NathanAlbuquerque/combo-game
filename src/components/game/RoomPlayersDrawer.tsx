@@ -3,6 +3,7 @@
 import { GameState } from "@/types/game";
 import { Users, X, Crown, Sparkles, Eye } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { VICTORY_OBJECTS_REQUIRED } from "@/constants";
 
 interface RoomPlayersDrawerProps {
   isOpen: boolean;
@@ -167,7 +168,7 @@ export function RoomPlayersDrawer({
                         </span>
                         <span className="flex items-center gap-1">
                           <span className="text-sm">🧩</span>
-                          <strong>{player.objectArea.length}/5</strong> na mesa
+                          <strong>{player.objectArea.length}/{VICTORY_OBJECTS_REQUIRED}</strong> na mesa
                         </span>
                       </div>
                     </div>

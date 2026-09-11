@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { CopyRoomButton } from "./CopyRoomButton";
 import { QrCode, Timer, ChevronDown, ChevronUp, History } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { DEFAULT_TURN_TIMER_SECONDS } from "@/constants";
 
 interface GameBoardLeftFlankProps {
   roomId?: string;
@@ -27,7 +28,7 @@ export function GameBoardLeftFlank({
   isMyExtraPlay,
   currentTurnPlayerName,
   remainingSeconds,
-  turnTimerDuration = 30,
+  turnTimerDuration = DEFAULT_TURN_TIMER_SECONDS,
   turnTimerEnabled = false,
   onOpenShareModal,
 }: GameBoardLeftFlankProps) {

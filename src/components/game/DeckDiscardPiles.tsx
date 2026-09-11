@@ -1,5 +1,6 @@
 "use client";
 
+import { memo } from "react";
 import { Card as CardType } from "@/types/game";
 import { Card } from "./Card";
 import { Button } from "@/components/ui/button";
@@ -14,7 +15,7 @@ interface DeckDiscardPilesProps {
   onCancelTargeting: () => void;
 }
 
-export function DeckDiscardPiles({
+export const DeckDiscardPiles = memo(function DeckDiscardPiles({
   topDiscard,
   deckCount,
   isActiveTurn,
@@ -89,4 +90,4 @@ export function DeckDiscardPiles({
       </div>
     </div>
   );
-}
+});

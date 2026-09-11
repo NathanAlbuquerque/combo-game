@@ -1,3 +1,4 @@
+import { memo } from "react";
 import { Card as CardType } from "@/types/game";
 import { Card } from "./Card";
 
@@ -7,7 +8,7 @@ interface PlayerHandProps {
   onCardClick: (card: CardType) => void;
 }
 
-export function PlayerHand({ hand, isActiveTurn, onCardClick }: PlayerHandProps) {
+export const PlayerHand = memo(function PlayerHand({ hand, isActiveTurn, onCardClick }: PlayerHandProps) {
   return (
     <div className="w-full flex justify-center items-end px-4 pt-4 pb-2">
       {hand.length === 0 ? (
@@ -64,4 +65,4 @@ export function PlayerHand({ hand, isActiveTurn, onCardClick }: PlayerHandProps)
       )}
     </div>
   );
-}
+});

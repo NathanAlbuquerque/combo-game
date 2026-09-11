@@ -4,6 +4,7 @@ import { Settings, Timer, Lock, X, ShieldAlert, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { RoomSettings } from "@/types/game";
 import { cn } from "@/lib/utils";
+import { TURN_TIMER_OPTIONS, DEFAULT_TURN_TIMER_SECONDS } from "@/constants";
 
 interface RoomSettingsModalProps {
   isOpen: boolean;
@@ -12,13 +13,6 @@ interface RoomSettingsModalProps {
   isLeader: boolean;
   onUpdateSettings: (settings: Partial<RoomSettings>) => void;
 }
-
-const DURATION_OPTIONS = [
-  { value: 15, label: "15s", desc: "Modo Blitz ⚡" },
-  { value: 30, label: "30s", desc: "Padrão ⏱️" },
-  { value: 45, label: "45s", desc: "Moderado ⏳" },
-  { value: 60, label: "60s", desc: "Longo 🐢" },
-];
 
 export function RoomSettingsModal({
   isOpen,
@@ -31,7 +25,7 @@ export function RoomSettingsModal({
 
   const currentSettings: RoomSettings = settings || {
     turnTimerEnabled: false,
-    turnTimerDuration: 30,
+    turnTimerDuration: DEFAULT_TURN_TIMER_SECONDS,
   };
 
   const handleToggleTimer = () => {
@@ -135,7 +129,7 @@ export function RoomSettingsModal({
                   Duração do Turno:
                 </span>
                 <div className="grid grid-cols-2 gap-2">
-                  {DURATION_OPTIONS.map((opt) => {
+                  {TURN_TIMER_OPTIONS.map((opt) => {
                     const isSelected = currentSettings.turnTimerDuration === opt.value;
                     return (
                       <button

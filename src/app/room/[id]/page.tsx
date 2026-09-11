@@ -13,10 +13,11 @@ import {
   RoomSettingsModal,
   MatchStatsModal,
 } from "@/components/game";
+import { STORAGE_KEYS, AUTO_START_COUNTDOWN_SECONDS } from "@/constants";
 
 function getOrCreatePlayerId(roomId: string): string {
   if (typeof window === "undefined") return "";
-  const key = `combo_player_id_${roomId}`;
+  const key = `${STORAGE_KEYS.PLAYER_ID_PREFIX}${roomId}`;
   let id = sessionStorage.getItem(key);
   if (!id) {
     id = `usr_${Math.random().toString(36).substring(2, 10)}_${Date.now().toString(36)}`;
@@ -72,7 +73,7 @@ function RoomContent() {
   const { remainingSeconds: autoStartSeconds } = useTurnTimer({
     enabled: Boolean(autoStartAt),
     turnExpiresAt: autoStartAt,
-    duration: 60,
+    duration: AUTO_START_COUNTDOWN_SECONDS,
     isActive: gameState?.status === "lobby",
   });
 
@@ -142,7 +143,7 @@ function RoomContent() {
             variant="outline"
             size="sm"
             onClick={() => {
-              sessionStorage.removeItem(`combo_player_id_${roomId}`);
+              sessionStorage.removeItem(`${STORAGE_KEYS.PLAYER_ID_PREFIX}${roomId}`);
               router.push("/");
             }}
             className="cursor-pointer font-bold text-xs"

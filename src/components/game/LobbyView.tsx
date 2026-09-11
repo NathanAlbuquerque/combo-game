@@ -5,6 +5,11 @@ import { Button } from "@/components/ui/button";
 import { CopyRoomButton } from "./CopyRoomButton";
 import { Settings, QrCode, Users, LogOut } from "lucide-react";
 import { cn } from "@/lib/utils";
+import {
+  MAX_PLAYERS_PER_ROOM,
+  VICTORY_OBJECTS_REQUIRED,
+  MIN_PLAYERS_AUTO_START,
+} from "@/constants";
 
 interface LobbyViewProps {
   roomId: string;
@@ -76,7 +81,7 @@ export function LobbyView({
               <div className="text-xs space-y-2 text-zinc-300">
                 <div className="flex items-center justify-between pb-1.5 border-b border-zinc-800/60">
                   <span className="text-zinc-400 text-[11px]">Participantes:</span>
-                  <span className="font-mono font-bold text-zinc-100 text-xs">{playersList.length} / 6</span>
+                  <span className="font-mono font-bold text-zinc-100 text-xs">{playersList.length} / {MAX_PLAYERS_PER_ROOM}</span>
                 </div>
                 <div className="flex items-center justify-between pb-1.5 border-b border-zinc-800/60">
                   <span className="text-zinc-400 text-[11px]">Anti-Stall:</span>
@@ -93,7 +98,7 @@ export function LobbyView({
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-zinc-400 text-[11px]">Vitória:</span>
-                  <span className="font-bold text-zinc-100 text-[11px]">5 Objetos</span>
+                  <span className="font-bold text-zinc-100 text-[11px]">{VICTORY_OBJECTS_REQUIRED} Objetos</span>
                 </div>
               </div>
             </div>
@@ -183,7 +188,7 @@ export function LobbyView({
                   <span>Participantes Conectados ({playersList.length})</span>
                 </h2>
                 <span className="text-[10px] font-bold text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
-                  Min. 2 jogadores
+                  Min. {MIN_PLAYERS_AUTO_START} jogadores
                 </span>
               </div>
 
@@ -226,10 +231,10 @@ export function LobbyView({
               {isCreator ? (
                 <Button
                   onClick={onStartGame}
-                  disabled={playersList.length < 2}
+                  disabled={playersList.length < MIN_PLAYERS_AUTO_START}
                   className="w-full font-black h-12 text-base shadow-lg cursor-pointer"
                 >
-                  {playersList.length < 2 ? "Aguardando mais jogadores..." : "Iniciar Jogo"}
+                  {playersList.length < MIN_PLAYERS_AUTO_START ? "Aguardando mais jogadores..." : "Iniciar Jogo"}
                 </Button>
               ) : (
                 <div className="text-center py-2 text-xs text-muted-foreground animate-pulse font-medium">
@@ -255,12 +260,12 @@ export function LobbyView({
             {isCreator ? (
               <Button
                 onClick={onStartGame}
-                disabled={playersList.length < 2}
+                disabled={playersList.length < MIN_PLAYERS_AUTO_START}
                 className="w-full h-14 font-black text-sm tracking-wide shadow-xl cursor-pointer bg-primary hover:bg-primary/90 text-primary-foreground rounded-2xl flex flex-col items-center justify-center gap-0.5"
               >
-                <span>{playersList.length < 2 ? "Aguardando Jogadores" : "Iniciar Jogo Agora"}</span>
+                <span>{playersList.length < MIN_PLAYERS_AUTO_START ? "Aguardando Jogadores" : "Iniciar Jogo Agora"}</span>
                 <span className="text-[10px] font-normal opacity-80">
-                  {playersList.length < 2 ? "Mínimo 2 jogadores" : `${playersList.length} conectados`}
+                  {playersList.length < MIN_PLAYERS_AUTO_START ? `Mínimo ${MIN_PLAYERS_AUTO_START} jogadores` : `${playersList.length} conectados`}
                 </span>
               </Button>
             ) : (

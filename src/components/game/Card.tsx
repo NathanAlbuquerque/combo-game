@@ -1,3 +1,4 @@
+import { memo } from "react";
 import { Card as CardType } from "@/types/game";
 import { cn } from "@/lib/utils";
 import { OBJECT_CARDS_DATA } from "@/data/cards";
@@ -64,7 +65,7 @@ export const CATEGORY_STYLES: Record<string, { bg: string; text: string; border:
   },
 };
 
-export function Card({ card, size = "normal", onClick, selected }: CardProps) {
+export const Card = memo(function Card({ card, size = "normal", onClick, selected }: CardProps) {
   const isBack = !card;
 
   const baseClasses = cn(
@@ -434,4 +435,4 @@ export function Card({ card, size = "normal", onClick, selected }: CardProps) {
       )}
     </div>
   );
-}
+});

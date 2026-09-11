@@ -1,5 +1,8 @@
 "use client";
 
+import { memo } from "react";
+import type { CSSProperties } from "react";
+
 export interface ReactionEvent {
   id: string;
   emoji: string;
@@ -19,7 +22,9 @@ interface FloatingReactionsOverlayProps {
   reactions: ActiveReaction[];
 }
 
-export function FloatingReactionsOverlay({ reactions }: FloatingReactionsOverlayProps) {
+export const FloatingReactionsOverlay = memo(function FloatingReactionsOverlay({
+  reactions,
+}: FloatingReactionsOverlayProps) {
   if (reactions.length === 0) return null;
 
   return (
@@ -28,15 +33,17 @@ export function FloatingReactionsOverlay({ reactions }: FloatingReactionsOverlay
         <div
           key={reaction.id}
           className="absolute pointer-events-none flex flex-col items-center select-none animate-float-reaction"
-          style={{
-            right: `${28 + reaction.xOffset}px`,
-            bottom: "100px",
-            ["--rx-x1" as string]: `${reaction.x1}px`,
-            ["--rx-x2" as string]: `${reaction.x2}px`,
-            ["--rx-x3" as string]: `${reaction.x3}px`,
-            ["--rx-x4" as string]: `${reaction.x4}px`,
-            ["--rx-rot" as string]: `${reaction.rot}deg`,
-          }}
+          style={
+            {
+              right: `${28 + reaction.xOffset}px`,
+              bottom: "100px",
+              "--rx-x1": `${reaction.x1}px`,
+              "--rx-x2": `${reaction.x2}px`,
+              "--rx-x3": `${reaction.x3}px`,
+              "--rx-x4": `${reaction.x4}px`,
+              "--rx-rot": `${reaction.rot}deg`,
+            } as CSSProperties
+          }
         >
           <span className="text-3xl sm:text-4xl drop-shadow-lg leading-none">
             {reaction.emoji}
@@ -50,5 +57,5 @@ export function FloatingReactionsOverlay({ reactions }: FloatingReactionsOverlay
       ))}
     </div>
   );
-}
+});
 

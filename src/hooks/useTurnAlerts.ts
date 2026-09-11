@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
+import { TURN_FLASH_DURATION_MS } from "@/constants";
 
 function playTurnNotificationSound() {
   if (typeof window === "undefined") return;
@@ -72,7 +73,7 @@ export function useTurnAlerts(isMyTurnActive: boolean, isMyExtraPlay: boolean) {
       playTurnNotificationSound();
       triggerTurnHaptics();
       setShowTurnFlash(true);
-      const timer = setTimeout(() => setShowTurnFlash(false), 1200);
+      const timer = setTimeout(() => setShowTurnFlash(false), TURN_FLASH_DURATION_MS);
       return () => clearTimeout(timer);
     }
 

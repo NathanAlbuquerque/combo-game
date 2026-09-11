@@ -1,20 +1,25 @@
 "use client";
 
+import { memo } from "react";
 import { Eye } from "lucide-react";
 import { Card as CardType } from "@/types/game";
 import { Card } from "./Card";
+import { VICTORY_OBJECTS_REQUIRED } from "@/constants";
 
 interface PlayerObjectsAreaProps {
   objects: CardType[];
   onInspectCard: (card: CardType) => void;
 }
 
-export function PlayerObjectsArea({ objects, onInspectCard }: PlayerObjectsAreaProps) {
+export const PlayerObjectsArea = memo(function PlayerObjectsArea({
+  objects,
+  onInspectCard,
+}: PlayerObjectsAreaProps) {
   return (
     <div className="h-[210px] sm:h-[230px] border-t bg-card/40 flex flex-col p-2.5 shrink-0 shadow-inner select-none">
       <div className="flex items-center justify-between px-1 mb-1.5 shrink-0">
         <span className="text-[11px] font-black text-foreground uppercase tracking-widest flex items-center gap-1.5">
-          Meus Objetos na Mesa ({objects.length}/5)
+          Meus Objetos na Mesa ({objects.length}/{VICTORY_OBJECTS_REQUIRED})
         </span>
         {objects.length > 0 && (
           <span className="text-[9.5px] text-muted-foreground font-semibold flex items-center gap-1">
@@ -43,4 +48,4 @@ export function PlayerObjectsArea({ objects, onInspectCard }: PlayerObjectsAreaP
       </div>
     </div>
   );
-}
+});

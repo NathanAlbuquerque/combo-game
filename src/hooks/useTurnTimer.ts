@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { DEFAULT_TURN_TIMER_SECONDS } from "@/constants";
 
 interface UseTurnTimerOptions {
   enabled?: boolean;
@@ -12,7 +13,7 @@ interface UseTurnTimerOptions {
 export function useTurnTimer({
   enabled = false,
   turnExpiresAt,
-  duration = 30,
+  duration = DEFAULT_TURN_TIMER_SECONDS,
   isActive = true,
 }: UseTurnTimerOptions) {
   const [now, setNow] = useState(() => Date.now());

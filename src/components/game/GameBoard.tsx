@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { GameState, Card as CardType, RoomSettings } from "@/types/game";
 import { useFullscreen, useTurnAlerts, useTurnTimer } from "@/hooks";
@@ -20,20 +20,16 @@ import {
   LeaderboardModal,
   ShareRoomModal,
   RoomSettingsModal,
+  Card,
 } from "./";
 import { Eye, Sparkles, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
-
-const TARGET_EFFECTS = [
-  "Senha Fraca Detectada",
-  "Rede de Apoio",
-  "Tomou Block!",
-  "Vídeo Deepfake",
-  "Esqueceu a Senha",
-  "Plágio Detectado",
-  "Alerta de Phishing",
-  "LI E ACEITO!",
-];
+import {
+  TARGET_EFFECT_NAMES,
+  TargetEffectName,
+  TOAST_DISMISS_DURATION_MS,
+  VICTORY_OBJECTS_REQUIRED,
+} from "@/constants";
 
 interface GameBoardProps {
   state: GameState;
@@ -80,8 +76,14 @@ export function GameBoard({
   const inspectingPlayer = inspectingPlayerId ? state.players[inspectingPlayerId] : null;
 
   // Jogadores ativos da partida (exclui espectadores para não poluir o carrossel de oponentes)
-  const activePlayers = Object.values(state.players).filter((p) => !p.isSpectating);
-  const opponents = isSpectator ? activePlayers : activePlayers.filter((p) => p.id !== myId);
+  const activePlayers = useMemo(
+    () => Object.values(state.players).filter((p) => !p.isSpectating),
+    [state.players]
+  );
+  const opponents = useMemo(
+    () => (isSpectator ? activePlayers : activePlayers.filter((p) => p.id !== myId)),
+    [activePlayers, isSpectator, myId]
+  );
 
   const isGlobalHandsRevealed = Boolean(state.revealedHandsUntilTurnOfPlayerId);
   const isAnyHandRevealed =
@@ -113,7 +115,7 @@ export function GameBoard({
       lastLogLengthRef.current = state.actionLog.length;
       const latest = state.actionLog[state.actionLog.length - 1];
       const showTimer = setTimeout(() => setMobileToast(latest), 0);
-      const hideTimer = setTimeout(() => setMobileToast(null), 4000);
+      const hideTimer = setTimeout(() => setMobileToast(null), TOAST_DISMISS_DURATION_MS);
       return () => {
         clearTimeout(showTimer);
         clearTimeout(hideTimer);
@@ -123,47 +125,59 @@ export function GameBoard({
 
   const topDiscard = state.discard.length > 0 ? state.discard[state.discard.length - 1] : undefined;
 
-  const handleResolvePending = (cardId: string) => {
-    if (onResolvePendingAction) {
-      onResolvePendingAction(cardId);
-    } else {
-      onDiscard(cardId);
-    }
-  };
+  const handleResolvePending = useCallback(
+    (cardId: string) => {
+      if (onResolvePendingAction) {
+        onResolvePendingAction(cardId);
+      } else {
+        onDiscard(cardId);
+      }
+    },
+    [onResolvePendingAction, onDiscard]
+  );
 
-  const handlePlayCard = (cardId: string) => {
-    if (isPendingMyAction) {
-      handleResolvePending(cardId);
-      return;
-    }
+  const handlePlayCard = useCallback(
+    (cardId: string) => {
+      if (isPendingMyAction) {
+        handleResolvePending(cardId);
+        return;
+      }
 
-    const card = me?.hand.find((c) => c.id === cardId);
-    if (!card) return;
+      const card = me?.hand.find((c) => c.id === cardId);
+      if (!card) return;
 
-    if (isMyExtraPlay) {
-      if (card.type === "object") onPlay(cardId);
-      return;
-    }
+      if (isMyExtraPlay) {
+        if (card.type === "object") onPlay(cardId);
+        return;
+      }
 
-    if (card.type === "effect" && card.name && TARGET_EFFECTS.includes(card.name)) {
-      setTargetingCardId(cardId);
-    } else {
-      onPlay(cardId);
-    }
-  };
+      if (card.type === "effect" && card.name && TARGET_EFFECT_NAMES.includes(card.name as TargetEffectName)) {
+        setTargetingCardId(cardId);
+      } else {
+        onPlay(cardId);
+      }
+    },
+    [isPendingMyAction, handleResolvePending, me?.hand, isMyExtraPlay, onPlay]
+  );
 
-  const handleInspectCard = (card: CardType) => {
-    if (isPendingMyAction) {
-      handleResolvePending(card.id);
-      return;
-    }
-    setPreviewCard(card);
-  };
+  const handleInspectCard = useCallback(
+    (card: CardType) => {
+      if (isPendingMyAction) {
+        handleResolvePending(card.id);
+        return;
+      }
+      setPreviewCard(card);
+    },
+    [isPendingMyAction, handleResolvePending]
+  );
 
-  const handleConfirmPlayFromPreview = (card: CardType) => {
-    setPreviewCard(null);
-    handlePlayCard(card.id);
-  };
+  const handleConfirmPlayFromPreview = useCallback(
+    (card: CardType) => {
+      setPreviewCard(null);
+      handlePlayCard(card.id);
+    },
+    [handlePlayCard]
+  );
 
   const canPlayPreviewCard = Boolean(
     previewCard && (isMyExtraPlay ? previewCard.type === "object" : isActiveTurn)
@@ -179,12 +193,15 @@ export function GameBoard({
     ? "Apenas Cartas-Objeto na jogada extra"
     : undefined;
 
-  const handleOpponentClick = (targetId: string) => {
-    if (targetingCardId) {
-      onPlay(targetingCardId, targetId);
-      setTargetingCardId(null);
-    }
-  };
+  const handleOpponentClick = useCallback(
+    (targetId: string) => {
+      if (targetingCardId) {
+        onPlay(targetingCardId, targetId);
+        setTargetingCardId(null);
+      }
+    },
+    [targetingCardId, onPlay]
+  );
 
   return (
     <div className="min-h-screen w-full bg-zinc-950 bg-gradient-to-b from-zinc-900/60 via-zinc-950 to-black flex justify-center items-center overflow-x-hidden font-sans relative">
@@ -482,7 +499,7 @@ export function GameBoard({
             </div>
             <div className="text-xs space-y-3 leading-relaxed text-muted-foreground">
               <p>
-                <strong>Objetivo:</strong> Colete e baixe <strong>5 Cartas-Objeto</strong> de temas
+                <strong>Objetivo:</strong> Colete e baixe <strong>{VICTORY_OBJECTS_REQUIRED} Cartas-Objeto</strong> de temas
                 diferentes ou Coringas na sua área para vencer a partida.
               </p>
               <div className="p-2.5 rounded-lg bg-primary/10 border border-primary/20 text-foreground font-medium">
@@ -517,7 +534,7 @@ export function GameBoard({
               <div>
                 <h3 className="font-black text-base">{inspectingPlayer.name}</h3>
                 <span className="text-[11px] text-muted-foreground">
-                  Objetos na Mesa ({inspectingPlayer.objectArea.length}/5)
+                  Objetos na Mesa ({inspectingPlayer.objectArea.length}/{VICTORY_OBJECTS_REQUIRED})
                 </span>
               </div>
               <button
@@ -540,12 +557,9 @@ export function GameBoard({
                       key={c.id}
                       onClick={() => setPreviewCard(c)}
                       className="cursor-pointer hover:scale-105 transition-transform"
+                      title={`Clique para inspecionar: ${c.name}`}
                     >
-                      <CardPreviewModal
-                        card={previewCard}
-                        isOpen={Boolean(previewCard)}
-                        onClose={() => setPreviewCard(null)}
-                      />
+                      <Card card={c} size="small" />
                     </div>
                   ))}
                 </div>

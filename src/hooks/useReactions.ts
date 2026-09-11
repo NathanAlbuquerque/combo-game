@@ -2,6 +2,7 @@
 
 import { useState, useCallback } from "react";
 import { ActiveReaction, ReactionEvent } from "@/components/game/FloatingReactionsOverlay";
+import { REACTION_LIFETIME_MS } from "@/constants";
 
 export function useReactions() {
   const [activeReactions, setActiveReactions] = useState<ActiveReaction[]>([]);
@@ -23,7 +24,7 @@ export function useReactions() {
 
     setTimeout(() => {
       setActiveReactions((prev) => prev.filter((r) => r.id !== item.id));
-    }, 2600);
+    }, REACTION_LIFETIME_MS);
   }, []);
 
   return { activeReactions, addReaction };

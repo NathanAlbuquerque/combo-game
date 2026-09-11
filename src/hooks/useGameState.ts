@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import usePartySocket from "partysocket/react";
 import { GameState, ServerMessage, RoomSettings, ClientMessage } from "@/types/game";
 import { ReactionEvent } from "@/components/game/FloatingReactionsOverlay";
+import { TOAST_SHORT_DURATION_MS } from "@/constants";
 
 interface UseGameStateOptions {
   roomId: string;
@@ -58,7 +59,7 @@ export function useGameState({
 
   useEffect(() => {
     if (!toastMsg) return;
-    const timer = setTimeout(() => setToastMsg(null), 3000);
+    const timer = setTimeout(() => setToastMsg(null), TOAST_SHORT_DURATION_MS);
     return () => clearTimeout(timer);
   }, [toastMsg]);
 

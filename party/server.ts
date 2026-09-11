@@ -1,6 +1,16 @@
 import type * as Party from "partykit/server";
 import { GameState, ClientMessage, ServerMessage, Card, Player, MatchStats, RoomSummary, PlayerRankEntry, LeaderboardData, RoomSettings } from "../src/types/game";
 import { OBJECT_CARDS_DATA, EFFECTS_CARDS_DATA } from "../src/data/cards";
+import {
+  VICTORY_OBJECTS_REQUIRED,
+  MAX_PLAYERS_PER_ROOM,
+  MIN_PLAYERS_AUTO_START,
+  AUTO_START_COUNTDOWN_SECONDS,
+  DEFAULT_TURN_TIMER_SECONDS,
+  REACTION_RATE_LIMIT_MS,
+  REACTION_RATE_LIMIT_MAX,
+  TARGET_EFFECT_NAMES,
+} from "../src/constants/game";
 
 function shuffleDeck<T>(array: T[]): T[] {
   const newArray = [...array];
@@ -84,7 +94,7 @@ export default class MainServer implements Party.Server {
       roomLeaderboard: {},
       roomSettings: {
         turnTimerEnabled: false,
-        turnTimerDuration: 30,
+        turnTimerDuration: DEFAULT_TURN_TIMER_SECONDS,
       },
       turnExpiresAt: undefined,
     };
@@ -303,7 +313,7 @@ export default class MainServer implements Party.Server {
       const summary: RoomSummary = {
         id: this.room.id,
         playerCount: activeCount,
-        maxPlayers: 5,
+        maxPlayers: MAX_PLAYERS_PER_ROOM,
         status: this.state.status,
         createdAt: this.createdAt,
         leaderName: leader?.name || "Líder",
@@ -462,7 +472,7 @@ export default class MainServer implements Party.Server {
   private handleAutoStart() {
     this.autoStartTimeout = null;
     this.state.autoStartAt = undefined;
-    if (this.state.status === "lobby" && Object.keys(this.state.players).length >= 2) {
+    if (this.state.status === "lobby" && Object.keys(this.state.players).length >= MIN_PLAYERS_AUTO_START) {
       this.addLog("⏳ Tempo de lobby finalizado! A partida iniciou automaticamente.");
       this.startGame();
     }
@@ -474,12 +484,13 @@ export default class MainServer implements Party.Server {
       return;
     }
     const count = Object.keys(this.state.players).length;
-    if (count >= 2) {
+    if (count >= MIN_PLAYERS_AUTO_START) {
       if (!this.autoStartTimeout) {
-        this.state.autoStartAt = Date.now() + 60000;
+        const autoStartDurationMs = AUTO_START_COUNTDOWN_SECONDS * 1000;
+        this.state.autoStartAt = Date.now() + autoStartDurationMs;
         this.autoStartTimeout = setTimeout(() => {
           this.handleAutoStart();
-        }, 60000);
+        }, autoStartDurationMs);
       }
     } else {
       this.clearAutoStartTimer();
@@ -502,7 +513,7 @@ export default class MainServer implements Party.Server {
       return;
     }
 
-    const durationSec = this.state.roomSettings.turnTimerDuration || 30;
+    const durationSec = this.state.roomSettings.turnTimerDuration || DEFAULT_TURN_TIMER_SECONDS;
     this.state.turnExpiresAt = Date.now() + durationSec * 1000;
 
     this.turnTimeout = setTimeout(() => {
@@ -597,7 +608,7 @@ export default class MainServer implements Party.Server {
     this.matchRecorded = false;
     if (this.state.status !== "lobby") return;
     const playerIds = Object.keys(this.state.players);
-    if (playerIds.length < 2) return;
+    if (playerIds.length < MIN_PLAYERS_AUTO_START) return;
 
     const shuffledDeck = generateDeck();
 
@@ -886,7 +897,7 @@ export default class MainServer implements Party.Server {
       }
     }
     
-    if (uniqueCategories.size + jokersCount >= 5) {
+    if (uniqueCategories.size + jokersCount >= VICTORY_OBJECTS_REQUIRED) {
       this.state.winnerId = playerId;
       this.state.status = 'finished';
       this.clearTurnTimer();
@@ -1021,8 +1032,11 @@ export default class MainServer implements Party.Server {
           return;
         }
 
-        if (Object.keys(this.state.players).length < 2) {
-          sender.send(JSON.stringify({ type: "error", message: "A partida precisa de pelo menos 2 jogadores para iniciar." }));
+        if (Object.keys(this.state.players).length < MIN_PLAYERS_AUTO_START) {
+          sender.send(JSON.stringify({
+            type: "error",
+            message: `A partida precisa de pelo menos ${MIN_PLAYERS_AUTO_START} jogadores para iniciar.`,
+          }));
           return;
         }
 
@@ -1197,17 +1211,7 @@ export default class MainServer implements Party.Server {
             }
 
             // Validação para efeitos que exigem alvo
-            const targetEffects = [
-              'Senha Fraca Detectada',
-              'Rede de Apoio',
-              'Tomou Block!',
-              'Vídeo Deepfake',
-              'Esqueceu a Senha',
-              'Plágio Detectado',
-              'Alerta de Phishing',
-              'LI E ACEITO!'
-            ];
-            if (card.name && targetEffects.includes(card.name)) {
+            if (card.name && (TARGET_EFFECT_NAMES as readonly string[]).includes(card.name)) {
               if (!targetPlayer || targetPlayer.id === me.id) {
                 sender.send(JSON.stringify({ type: "error", message: "Você precisa escolher outro jogador como alvo válido." }));
                 return;
@@ -1571,7 +1575,7 @@ export default class MainServer implements Party.Server {
 
         const currentSettings: RoomSettings = this.state.roomSettings || {
           turnTimerEnabled: false,
-          turnTimerDuration: 30,
+          turnTimerDuration: DEFAULT_TURN_TIMER_SECONDS,
         };
 
         this.state.roomSettings = {
@@ -1602,9 +1606,11 @@ export default class MainServer implements Party.Server {
         if (!parsed.emoji || typeof parsed.emoji !== "string") return;
 
         const now = Date.now();
-        const timestamps = (this.reactionTimestamps.get(sender.id) || []).filter(t => now - t < 2000);
-        if (timestamps.length >= 3) {
-          // Rate-limit: Máximo de 3 reações a cada 2 segundos por conexão
+        const timestamps = (this.reactionTimestamps.get(sender.id) || []).filter(
+          (t) => now - t < REACTION_RATE_LIMIT_MS
+        );
+        if (timestamps.length >= REACTION_RATE_LIMIT_MAX) {
+          // Rate-limit: Máximo de reações permitidas na janela de tempo por conexão
           return;
         }
         timestamps.push(now);
