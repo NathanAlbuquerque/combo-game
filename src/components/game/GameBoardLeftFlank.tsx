@@ -90,20 +90,15 @@ export function GameBoardLeftFlank({
             <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-400">
               Turno Atual
             </span>
-            {isMyTurnActive ? (
-              <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 text-[10px] font-black tracking-wide border border-emerald-500/40 flex items-center gap-1">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
-                SUA VEZ
-              </span>
-            ) : isSpectator ? (
+            {isSpectator ? (
               <span className="px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-400 text-[10px] font-black">
                 ESPECTADOR
               </span>
-            ) : (
+            ) : !isMyTurnActive ? (
               <span className="px-2 py-0.5 rounded-full bg-zinc-800 text-zinc-400 text-[10px] font-bold">
                 EM ANDAMENTO
               </span>
-            )}
+            ) : null}
           </div>
 
           <div className="flex items-center gap-2.5">

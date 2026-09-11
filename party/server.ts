@@ -26,6 +26,16 @@ const BOT_NAMES = [
   "🤖 Ritchie",
 ];
 
+function isBotName(name: string): boolean {
+  const lower = name.toLowerCase().trim();
+  return (
+    lower.startsWith("🤖") ||
+    lower.startsWith("[bot]") ||
+    lower.startsWith("bot_") ||
+    BOT_NAMES.some((b) => b.toLowerCase() === lower)
+  );
+}
+
 function shuffleDeck<T>(array: T[]): T[] {
   const newArray = [...array];
   for (let i = newArray.length - 1; i > 0; i--) {
@@ -227,7 +237,9 @@ export default class MainServer implements Party.Server {
           }
 
           this.checkDailyReset();
-          const list = Array.from(this.globalLeaderboard.values());
+          const list = Array.from(this.globalLeaderboard.values()).filter(
+            (entry) => !isBotName(entry.name)
+          );
           list.sort((a, b) => {
             if (b.wins !== a.wins) return b.wins - a.wins;
             if (b.lastWinAt !== a.lastWinAt) return b.lastWinAt - a.lastWinAt;
@@ -321,7 +333,7 @@ export default class MainServer implements Party.Server {
 
             for (const pName of participants) {
               const clean = pName.trim();
-              if (!clean) continue;
+              if (!clean || isBotName(clean)) continue;
               let entry = this.globalLeaderboard.get(clean);
               if (!entry) {
                 entry = {
@@ -335,7 +347,7 @@ export default class MainServer implements Party.Server {
               entry.matchesPlayed += 1;
             }
 
-            if (winnerName) {
+            if (winnerName && !isBotName(winnerName)) {
               const cleanWinner = winnerName.trim();
               let entry = this.globalLeaderboard.get(cleanWinner);
               if (!entry) {
@@ -459,11 +471,15 @@ export default class MainServer implements Party.Server {
 
     const participants: string[] = [];
     const winnerPlayer = winnerId ? this.state.players[winnerId] : null;
-    const winnerName = winnerPlayer?.name ? winnerPlayer.name.trim() : null;
+    const isBotWinner = Boolean(
+      winnerPlayer?.isBot || (winnerPlayer?.name && isBotName(winnerPlayer.name))
+    );
+    const winnerName = (!isBotWinner && winnerPlayer?.name) ? winnerPlayer.name.trim() : null;
 
     for (const pid of Object.keys(this.state.players)) {
       const p = this.state.players[pid];
-      if (p && !p.isSpectating) {
+      // Bots e espectadores NUNCA participam ou pontuam em rankings
+      if (p && !p.isSpectating && !p.isBot && !isBotName(p.name)) {
         const pName = p.name.trim() || "Jogador";
         participants.push(pName);
 

@@ -42,31 +42,72 @@ export function LobbyView({
         {/* TARJA ESCURA LATERAL ESQUERDA (Desktop: hidden lg:flex) */}
         {/* ========================================================= */}
         <aside className="hidden lg:flex flex-col w-[230px] xl:w-[250px] p-3.5 py-4 shrink-0 justify-between gap-3 select-none">
-          <div className="space-y-3 shrink-0">
-            <div className="px-1 pb-1">
-              <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-400">
-                Compartilhar Sala
-              </span>
+          <div className="space-y-4 shrink-0">
+            {/* 1. Controles de Gerenciamento da Sala */}
+            <div className="space-y-2">
+              <div className="px-1 pb-1">
+                <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-400">
+                  Gerenciar Sala
+                </span>
+              </div>
+
+              {/* Botão Configurações da Sala */}
+              <Button
+                variant="outline"
+                size="default"
+                onClick={onOpenSettingsModal}
+                className="w-full justify-start font-bold text-xs h-10 px-3 bg-zinc-900/90 hover:bg-zinc-800 border border-zinc-700/80 hover:border-zinc-500 text-zinc-100 hover:text-white cursor-pointer gap-2.5 shadow-md transition-all rounded-xl relative"
+                title="Configurações da Sala"
+              >
+                <Settings className="w-4 h-4 text-zinc-300" />
+                <span className="truncate">Configurações</span>
+                {roomSettings?.turnTimerEnabled && (
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse absolute right-3" />
+                )}
+              </Button>
+
+              {/* Botão Adicionar Bot (visível apenas para o líder se houver vagas) */}
+              {isCreator && playersList.length < MAX_PLAYERS_PER_ROOM && onAddBot && (
+                <Button
+                  variant="outline"
+                  size="default"
+                  onClick={onAddBot}
+                  className="w-full justify-start font-bold text-xs h-10 px-3 bg-purple-950/40 hover:bg-purple-900/50 border border-purple-500/40 hover:border-purple-400 text-purple-200 hover:text-white cursor-pointer gap-2.5 shadow-md transition-all rounded-xl active:scale-98"
+                  title="Adicionar bot virtual (IA)"
+                >
+                  <Bot className="w-4 h-4 text-purple-400 shrink-0" />
+                  <span className="truncate">+ Adicionar Bot ({playersList.length}/{MAX_PLAYERS_PER_ROOM})</span>
+                </Button>
+              )}
             </div>
 
-            {/* 1. Botão Copiar Link */}
-            <CopyRoomButton
-              roomId={roomId}
-              variant="secondary"
-              size="default"
-              className="w-full justify-center font-bold text-xs h-10 bg-zinc-900/90 hover:bg-zinc-800 border border-zinc-700/80 hover:border-zinc-500 text-zinc-100 hover:text-white cursor-pointer transition-all shadow-md rounded-xl"
-            />
+            {/* 2. Compartilhar Sala */}
+            <div className="space-y-2 pt-2 border-t border-zinc-800/60">
+              <div className="px-1 pb-1">
+                <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-400">
+                  Compartilhar Sala
+                </span>
+              </div>
 
-            {/* 2. Botão QR Code */}
-            <Button
-              variant="outline"
-              size="default"
-              onClick={onOpenShareModal}
-              className="w-full justify-center font-bold text-xs h-10 bg-zinc-900/90 hover:bg-zinc-800 border border-zinc-700/80 hover:border-zinc-500 text-zinc-100 hover:text-white cursor-pointer gap-2 shadow-md transition-all rounded-xl"
-            >
-              <QrCode className="w-4 h-4 text-zinc-100" />
-              <span>QR Code / Convidar</span>
-            </Button>
+              {/* Botão Copiar Link */}
+              <CopyRoomButton
+                roomId={roomId}
+                variant="secondary"
+                size="default"
+                className="w-full justify-start font-bold text-xs h-10 px-3 bg-zinc-900/90 hover:bg-zinc-800 border border-zinc-700/80 hover:border-zinc-500 text-zinc-100 hover:text-white cursor-pointer transition-all shadow-md rounded-xl"
+              />
+
+              {/* Botão QR Code */}
+              <Button
+                variant="outline"
+                size="default"
+                onClick={onOpenShareModal}
+                className="w-full justify-start font-bold text-xs h-10 px-3 bg-zinc-900/90 hover:bg-zinc-800 border border-zinc-700/80 hover:border-zinc-500 text-zinc-100 hover:text-white cursor-pointer gap-2.5 shadow-md transition-all rounded-xl"
+              >
+                <QrCode className="w-4 h-4 text-zinc-100 shrink-0" />
+                <span className="truncate">QR Code / Convidar</span>
+              </Button>
+            </div>
           </div>
 
           {/* 3. Botão Sair da Sala */}
@@ -99,43 +140,50 @@ export function LobbyView({
               </span>
             </div>
 
-            <div className="flex items-center gap-1.5 shrink-0">
+            {/* No mobile (lg:hidden), controles compactos por não haver tarja lateral */}
+            <div className="lg:hidden flex items-center gap-1.5 shrink-0">
+              {isCreator && playersList.length < MAX_PLAYERS_PER_ROOM && onAddBot && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={onAddBot}
+                  className="h-9 w-9 p-0 text-xs font-bold cursor-pointer text-purple-400 border-purple-500/30 bg-purple-500/10 hover:bg-purple-500/20 rounded-xl"
+                  title="Adicionar bot virtual"
+                >
+                  <Bot className="w-4 h-4" />
+                </Button>
+              )}
               <Button
                 variant="outline"
                 size="sm"
                 onClick={onOpenSettingsModal}
-                className="h-9 px-3 text-xs font-bold cursor-pointer gap-1.5 rounded-xl border-border/80 hover:bg-muted"
+                className="h-9 w-9 p-0 text-xs font-bold cursor-pointer rounded-xl border-border/80 hover:bg-muted relative"
                 title="Configurações da sala"
               >
                 <Settings className="w-4 h-4" />
-                <span className="hidden sm:inline">Configurações</span>
                 {roomSettings?.turnTimerEnabled && (
-                  <span className="w-2 h-2 rounded-full bg-primary animate-pulse" />
+                  <span className="w-2 h-2 rounded-full bg-primary animate-pulse absolute top-1 right-1" />
                 )}
               </Button>
-
-              {/* Botões rápidos apenas no mobile para suprir as tarjas laterais ausentes */}
-              <div className="lg:hidden flex items-center gap-1">
-                <CopyRoomButton roomId={roomId} size="sm" iconOnly className="h-9 w-9 p-0 cursor-pointer rounded-xl" />
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={onOpenShareModal}
-                  className="h-9 w-9 p-0 text-xs font-bold cursor-pointer text-primary border-primary/30 bg-primary/10 hover:bg-primary/20 rounded-xl"
-                  title="Compartilhar com QR Code"
-                >
-                  <QrCode className="w-4 h-4" />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={onLeaveRoom}
-                  className="text-xs text-muted-foreground hover:text-destructive h-9 px-2 cursor-pointer"
-                  title="Sair da sala"
-                >
-                  <LogOut className="w-4 h-4" />
-                </Button>
-              </div>
+              <CopyRoomButton roomId={roomId} size="sm" iconOnly className="h-9 w-9 p-0 cursor-pointer rounded-xl" />
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={onOpenShareModal}
+                className="h-9 w-9 p-0 text-xs font-bold cursor-pointer text-primary border-primary/30 bg-primary/10 hover:bg-primary/20 rounded-xl"
+                title="Compartilhar com QR Code"
+              >
+                <QrCode className="w-4 h-4" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={onLeaveRoom}
+                className="text-xs text-muted-foreground hover:text-destructive h-9 px-2 cursor-pointer"
+                title="Sair da sala"
+              >
+                <LogOut className="w-4 h-4" />
+              </Button>
             </div>
           </header>
 
@@ -153,24 +201,11 @@ export function LobbyView({
               <div className="flex items-center justify-between pb-2 mb-2 border-b border-border/50 shrink-0">
                 <h2 className="text-xs font-black uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
                   <Users className="w-4 h-4 text-primary shrink-0" />
-                  <span>Participantes Conectados ({playersList.length})</span>
+                  <span>Participantes Conectados ({playersList.length}/{MAX_PLAYERS_PER_ROOM})</span>
                 </h2>
-                <div className="flex items-center gap-2">
-                  {isCreator && playersList.length < MAX_PLAYERS_PER_ROOM && onAddBot && (
-                    <button
-                      type="button"
-                      onClick={onAddBot}
-                      className="inline-flex items-center gap-1 text-[11px] font-bold text-primary hover:text-primary/80 bg-primary/10 hover:bg-primary/20 px-2 py-0.5 rounded-lg transition-colors cursor-pointer border border-primary/25 active:scale-95"
-                      title="Adicionar bot virtual (IA)"
-                    >
-                      <Bot className="w-3.5 h-3.5" />
-                      <span>+ Adicionar Bot</span>
-                    </button>
-                  )}
-                  <span className="text-[10px] font-bold text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
-                    Mín. {MIN_PLAYERS_AUTO_START} jogadores
-                  </span>
-                </div>
+                <span className="text-[10px] font-bold text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
+                  Mín. {MIN_PLAYERS_AUTO_START} jogadores
+                </span>
               </div>
 
               <ul className="space-y-2 flex-1 overflow-y-auto pr-0.5 scrollbar-thin">
