@@ -13,6 +13,19 @@ import {
   DEFAULT_PARTYKIT_HOST,
 } from "../src/constants/game";
 
+const BOT_NAMES = [
+  "🤖 Turing",
+  "🤖 Ada",
+  "🤖 Byte",
+  "🤖 Linus",
+  "🤖 Hopper",
+  "🤖 Lovelace",
+  "🤖 Wozniak",
+  "🤖 Margaret",
+  "🤖 Knuth",
+  "🤖 Ritchie",
+];
+
 function shuffleDeck<T>(array: T[]): T[] {
   const newArray = [...array];
   for (let i = newArray.length - 1; i > 0; i--) {
@@ -50,8 +63,18 @@ function generateDeck(): Card[] {
     });
   }
 
-  // 16 Cartas de Efeito (1 cópia de cada uma das 16 cartas)
+  // 30 Cartas de Efeito (2 de cada um dos 15 efeitos)
   EFFECTS_CARDS_DATA.forEach(conf => {
+    // 1ª Cópia
+    deck.push({
+      id: `eff_${idCounter++}`,
+      type: 'effect',
+      name: conf.name,
+      description: conf.desc,
+      tip: conf.tip,
+      fact: conf.fact,
+    });
+    // 2ª Cópia
     deck.push({
       id: `eff_${idCounter++}`,
       type: 'effect',
@@ -75,6 +98,7 @@ export default class MainServer implements Party.Server {
   private matchRecorded: boolean = false;
   private reactionTimestamps: Map<string, number[]> = new Map();
   private disconnectTimeouts: Map<string, ReturnType<typeof setTimeout>> = new Map();
+  private botActionTimeout: ReturnType<typeof setTimeout> | null = null;
 
   private getInitialState(): GameState {
     return {
@@ -105,6 +129,10 @@ export default class MainServer implements Party.Server {
   private resetRoomState() {
     this.clearTurnTimer();
     this.clearAutoStartTimer();
+    if (this.botActionTimeout) {
+      clearTimeout(this.botActionTimeout);
+      this.botActionTimeout = null;
+    }
     for (const timeout of this.disconnectTimeouts.values()) {
       clearTimeout(timeout);
     }
@@ -185,6 +213,19 @@ export default class MainServer implements Party.Server {
       if (req.method === "GET") {
         // Rota de Ranking Geral
         if (url.searchParams.get("type") === "leaderboard" || url.pathname.endsWith("/leaderboard")) {
+          try {
+            const savedLeaderboard = await this.room.storage.get<{
+              ranks: Record<string, PlayerRankEntry>;
+              lastResetAt: number;
+            }>("global_leaderboard");
+            if (savedLeaderboard) {
+              this.leaderboardLastResetAt = savedLeaderboard.lastResetAt || Date.now();
+              this.globalLeaderboard = new Map(Object.entries(savedLeaderboard.ranks || {}));
+            }
+          } catch (storageErr) {
+            console.warn("Aviso ao ler storage de global_leaderboard no GET:", storageErr);
+          }
+
           this.checkDailyReset();
           const list = Array.from(this.globalLeaderboard.values());
           list.sort((a, b) => {
@@ -249,14 +290,31 @@ export default class MainServer implements Party.Server {
       if (req.method === "POST") {
         try {
           const body = (await req.json()) as {
-            action: "update" | "delete" | "record_match_result";
+            action?: "update" | "delete" | "record_match_result";
+            type?: "update" | "delete" | "record_match_result";
             roomId?: string;
             summary?: RoomSummary;
             winnerName?: string;
             participants?: string[];
           };
 
-          if (body.action === "record_match_result") {
+          const isRecordMatch =
+            body.action === "record_match_result" || body.type === "record_match_result";
+
+          if (isRecordMatch) {
+            try {
+              const savedLeaderboard = await this.room.storage.get<{
+                ranks: Record<string, PlayerRankEntry>;
+                lastResetAt: number;
+              }>("global_leaderboard");
+              if (savedLeaderboard) {
+                this.leaderboardLastResetAt = savedLeaderboard.lastResetAt || Date.now();
+                this.globalLeaderboard = new Map(Object.entries(savedLeaderboard.ranks || {}));
+              }
+            } catch (storageErr) {
+              console.warn("Aviso ao ler storage antes de record_match_result:", storageErr);
+            }
+
             this.checkDailyReset();
             const participants = body.participants || [];
             const winnerName = body.winnerName;
@@ -441,13 +499,14 @@ export default class MainServer implements Party.Server {
     if (this.room.id === "global-registry") return;
     try {
       const payload = JSON.stringify({
+        type: "record_match_result",
         action: "record_match_result",
         winnerName: winnerName || undefined,
         participants,
       });
 
       const partyName = this.room.name || "main";
-      const registryStub = (this.room.context?.parties?.[partyName] || this.room.context?.parties?.main)?.get("global-registry");
+      const registryStub = (this.room.context?.parties?.main || this.room.context?.parties?.[partyName])?.get("global-registry");
       let notified = false;
 
       if (registryStub) {
@@ -483,6 +542,10 @@ export default class MainServer implements Party.Server {
   }
 
   private handleMatchFinished() {
+    if (this.botActionTimeout) {
+      clearTimeout(this.botActionTimeout);
+      this.botActionTimeout = null;
+    }
     if (this.matchRecorded) return;
     this.matchRecorded = true;
     this.recordMatchLeaderboard(this.state.winnerId);
@@ -743,6 +806,7 @@ export default class MainServer implements Party.Server {
     }
     this.notifyRegistry();
     this.broadcastSync();
+    this.checkBotTurn();
   }
 
   private connectionToPlayerId: Map<string, string> = new Map();
@@ -825,7 +889,8 @@ export default class MainServer implements Party.Server {
     } else {
       delete this.state.players[playerId];
       if (this.state.creatorId === playerId) {
-        const remaining = Object.keys(this.state.players);
+        const remainingHumans = Object.keys(this.state.players).filter(id => !this.state.players[id]?.isBot);
+        const remaining = remainingHumans.length > 0 ? remainingHumans : Object.keys(this.state.players);
         this.state.creatorId = remaining.length > 0 ? remaining[0] : null;
         if (this.state.creatorId && this.state.players[this.state.creatorId]) {
           this.state.players[this.state.creatorId].isCreator = true;
@@ -956,6 +1021,9 @@ export default class MainServer implements Party.Server {
     } else {
       this.clearTurnTimer();
     }
+    if (this.state.status === "playing") {
+      this.checkBotTurn();
+    }
   }
 
   private checkEliminations(): boolean {
@@ -1046,6 +1114,501 @@ export default class MainServer implements Party.Server {
       this.addLog("O descarte foi reembaralhado no baralho!");
     }
     return this.state.deck.pop() || null;
+  }
+
+  private applyEffectCard(me: Player, card: Card, targetPlayer?: Player): boolean {
+    let endsTurn = true;
+
+    switch (card.name) {
+      case 'Senha Forte':
+        for (let k = 0; k < 2; k++) {
+          const c = this.drawOneCard();
+          if (c) {
+            me.hand.push(c);
+            this.recordCardDrawn(me.id);
+          }
+        }
+        this.addLog(`🔑 ${me.name} usou Senha Forte e comprou 2 cartas do baralho.`);
+        break;
+
+      case 'Senha Fraca Detectada': {
+        if (!targetPlayer) break;
+        const c = this.drawOneCard();
+        if (c) {
+          me.hand.push(c);
+          this.recordCardDrawn(me.id);
+        }
+
+        this.state.revealedPlayerIds = Array.from(
+          new Set([...(this.state.revealedPlayerIds || []), targetPlayer.id])
+        );
+        this.state.revealedPlayerUntilTurn = {
+          ...(this.state.revealedPlayerUntilTurn || {}),
+          [targetPlayer.id]: me.id
+        };
+        this.addLog(`🔍 ${me.name} detectou Senha Fraca de ${targetPlayer.name}! A mão de ${targetPlayer.name} foi revelada a todos (+1 carta comprada).`);
+        break;
+      }
+
+      case 'Vazamento de Dados': {
+        this.state.revealedHandsUntilTurnOfPlayerId = me.id;
+        const c = this.drawOneCard();
+        if (c) {
+          me.hand.push(c);
+          this.recordCardDrawn(me.id);
+        }
+        this.addLog(`👁️ ${me.name} usou Vazamento de Dados! Todos jogam com as mãos reveladas até o próximo turno de ${me.name} (+1 carta comprada).`);
+        break;
+      }
+
+      case 'Six Seven': {
+        const activePlayerIds = Object.keys(this.state.players).filter(
+          id => !this.state.players[id].isEliminated
+        );
+        if (activePlayerIds.length > 1) {
+          const originalHands: Record<string, Card[]> = {};
+          for (const pid of activePlayerIds) {
+            originalHands[pid] = [...this.state.players[pid].hand];
+          }
+          for (let i = 0; i < activePlayerIds.length; i++) {
+            const fromId = activePlayerIds[i];
+            const toIndex = (i + 1) % activePlayerIds.length;
+            const toId = activePlayerIds[toIndex];
+            this.state.players[toId].hand = originalHands[fromId];
+          }
+          this.addLog(`🔄 ${me.name} usou Six Seven! Todos os jogadores passaram suas mãos inteiras de cartas para a esquerda.`);
+        } else {
+          this.addLog(`${me.name} usou Six Seven, mas não há outros jogadores ativos para passar a mão.`);
+        }
+        break;
+      }
+
+      case 'Limpeza de Cache':
+        if (me.hand.length <= 1) {
+          for (let k = 0; k < 3; k++) {
+            const c = this.drawOneCard();
+            if (c) {
+              me.hand.push(c);
+              this.recordCardDrawn(me.id);
+            }
+          }
+          this.addLog(`🧹 ${me.name} fez Limpeza de Cache e comprou 3 cartas!`);
+        } else {
+          this.addLog(`${me.name} tentou Limpeza de Cache, mas tinha ${me.hand.length} cartas na mão (necessário 0 ou 1). Nenhuma carta comprada.`);
+        }
+        break;
+
+      case 'Engajamento Merecido': {
+        const amountToDraw = me.objectArea.length;
+        for (let k = 0; k < amountToDraw; k++) {
+          const c = this.drawOneCard();
+          if (c) {
+            me.hand.push(c);
+            this.recordCardDrawn(me.id);
+          }
+        }
+        this.addLog(`⭐ ${me.name} ganhou ${amountToDraw} carta(s) pelo seu Engajamento Merecido.`);
+        break;
+      }
+
+      case 'Formatar o Sistema': {
+        const activePlayers = Object.values(this.state.players).filter(p => !p.isEliminated);
+        for (const p of activePlayers) {
+          this.state.discard.push(...p.hand);
+          p.hand = [];
+        }
+        for (let round = 0; round < 3; round++) {
+          for (const p of activePlayers) {
+            const c = this.drawOneCard();
+            if (c) {
+              p.hand.push(c);
+              this.recordCardDrawn(p.id);
+            }
+          }
+        }
+        this.addLog(`💻 ${me.name} formatou o sistema! Todos descartaram suas mãos inteiras e compraram 3 cartas novas do baralho.`);
+        break;
+      }
+
+      case 'Rede de Apoio': {
+        for (let k = 0; k < 3; k++) {
+          const c = this.drawOneCard();
+          if (c) {
+            me.hand.push(c);
+            this.recordCardDrawn(me.id);
+          }
+        }
+        if (targetPlayer) {
+          const targetCard = this.drawOneCard();
+          if (targetCard) {
+            targetPlayer.hand.push(targetCard);
+            this.recordCardDrawn(targetPlayer.id);
+          }
+          this.addLog(`🤝 ${me.name} usou Rede de Apoio: comprou 3 cartas e ${targetPlayer.name} comprou 1.`);
+        }
+        break;
+      }
+
+      case 'Tomou Block!': {
+        if (!targetPlayer) break;
+        const c = this.drawOneCard();
+        if (c) {
+          me.hand.push(c);
+          this.recordCardDrawn(me.id);
+        }
+        targetPlayer.skipNextTurn = true;
+        targetPlayer.isBlocked = true;
+        this.addLog(`🚫 ${me.name} deu Block em ${targetPlayer.name}! Ele perderá a vez no próximo turno (+1 carta comprada).`);
+        break;
+      }
+
+      case 'Vídeo Deepfake': {
+        if (!targetPlayer) break;
+        me.hand = me.hand.filter(c => c.id !== card.id);
+        if (!this.state.discard.some(c => c.id === card.id)) {
+          this.state.discard.push(card);
+        }
+        const myHandToGive = [...me.hand];
+        me.hand = [...targetPlayer.hand];
+        targetPlayer.hand = myHandToGive;
+        this.addLog(`🎭 ${me.name} usou Vídeo Deepfake e trocou de mão com ${targetPlayer.name}!`);
+        break;
+      }
+
+      case 'Agência de Checagem': {
+        let returnedCount = 0;
+        for (const [pid, player] of Object.entries(this.state.players)) {
+          if (pid !== me.id && !player.isEliminated && player.objectArea.length > 0) {
+            const returnedCard = player.objectArea.pop()!;
+            player.hand.push(returnedCard);
+            returnedCount++;
+          }
+        }
+        if (returnedCount > 0) {
+          this.addLog(`🔎 ${me.name} acionou a Agência de Checagem! ${returnedCount} adversário(s) devolveram o último objeto da mesa para a mão.`);
+        } else {
+          this.addLog(`🔎 ${me.name} acionou a Agência de Checagem, mas nenhum adversário possuía objetos na mesa.`);
+        }
+        break;
+      }
+
+      case 'Esqueceu a Senha': {
+        if (!targetPlayer) break;
+        if (targetPlayer.hand.length > 0) {
+          const randomIndex = Math.floor(Math.random() * targetPlayer.hand.length);
+          const discardedCard = targetPlayer.hand.splice(randomIndex, 1)[0];
+          this.state.discard.push(discardedCard);
+          this.addLog(`🔒 ${me.name} usou Esqueceu a Senha! ${targetPlayer.name} descartou 1 carta aleatória (${discardedCard.name || 'Carta'}).`);
+        } else {
+          this.addLog(`🔒 ${me.name} usou Esqueceu a Senha contra ${targetPlayer.name}, mas ele não possuía cartas na mão.`);
+        }
+        break;
+      }
+
+      case 'Plágio Detectado': {
+        if (!targetPlayer) break;
+        if (targetPlayer.objectArea.length > 0) {
+          const discardedObj = targetPlayer.objectArea.pop()!;
+          this.state.discard.push(discardedObj);
+          this.addLog(`🚨 ${me.name} detectou Plágio de ${targetPlayer.name}! O objeto "${discardedObj.name}" foi removido da mesa e descartado.`);
+        } else {
+          this.addLog(`🚨 ${me.name} usou Plágio Detectado contra ${targetPlayer.name}, mas ele não possuía objetos na mesa.`);
+        }
+        break;
+      }
+
+      case 'Prompt Perfeito': {
+        for (let k = 0; k < 2; k++) {
+          const c = this.drawOneCard();
+          if (c) {
+            me.hand.push(c);
+            this.recordCardDrawn(me.id);
+          }
+        }
+
+        const existingCategories = new Set(
+          me.objectArea.filter(c => c.type === 'object' && c.category).map(c => c.category)
+        );
+        const hasEligibleObject = me.hand.some(
+          c => (c.type === 'object' && c.category && !existingCategories.has(c.category)) || c.type === 'joker'
+        );
+
+        if (hasEligibleObject) {
+          this.state.extraPlayPlayerId = me.id;
+          endsTurn = false;
+          this.addLog(`✨ ${me.name} usou Prompt Perfeito! Comprou 2 cartas e tem a chance de baixar um novo Objeto como jogada extra.`);
+        } else {
+          this.addLog(`✨ ${me.name} usou Prompt Perfeito e comprou 2 cartas, mas não possui nenhum Objeto novo para baixar.`);
+          endsTurn = true;
+        }
+        break;
+      }
+
+      case 'Alerta de Phishing': {
+        if (!targetPlayer) break;
+        if (targetPlayer.hand.length === 0) {
+          this.addLog(`🚨 ${me.name} usou Alerta de Phishing em ${targetPlayer.name}, mas ele não possuía cartas na mão.`);
+          endsTurn = true;
+        } else if (targetPlayer.hand.length === 1) {
+          const discardedCard = targetPlayer.hand.splice(0, 1)[0];
+          this.state.discard.push(discardedCard);
+          this.addLog(`🚨 ${me.name} usou Alerta de Phishing! Como ${targetPlayer.name} só tinha 1 carta (${discardedCard.name || 'Carta'}), ela foi descartada automaticamente.`);
+          endsTurn = true;
+        } else {
+          this.state.pendingAction = {
+            type: 'CHOOSE_CARD_TO_DISCARD',
+            requiredPlayerId: targetPlayer.id,
+            initiatorPlayerId: me.id,
+            sourceCardName: card.name || 'Alerta de Phishing',
+          };
+          endsTurn = false;
+          this.addLog(`🚨 ${me.name} jogou Alerta de Phishing em ${targetPlayer.name}, que deve escolher 1 carta da mão para descartar.`);
+        }
+        break;
+      }
+
+      case 'LI E ACEITO!': {
+        if (!targetPlayer) break;
+        if (targetPlayer.hand.length === 0) {
+          this.addLog(`📜 ${me.name} usou LI E ACEITO! em ${targetPlayer.name}, mas ele não possuía cartas na mão.`);
+          endsTurn = true;
+        } else if (targetPlayer.hand.length === 1) {
+          const transferredCard = targetPlayer.hand.splice(0, 1)[0];
+          me.hand.push(transferredCard);
+          this.addLog(`📜 ${me.name} usou LI E ACEITO! Como ${targetPlayer.name} só tinha 1 carta (${transferredCard.name || 'Carta'}), ela foi entregue automaticamente a ${me.name}.`);
+          endsTurn = true;
+        } else {
+          this.state.pendingAction = {
+            type: 'CHOOSE_CARD_TO_GIVE',
+            requiredPlayerId: targetPlayer.id,
+            initiatorPlayerId: me.id,
+            sourceCardName: card.name || 'LI E ACEITO!',
+          };
+          endsTurn = false;
+          this.addLog(`📜 ${me.name} jogou LI E ACEITO! em ${targetPlayer.name}, que deve escolher 1 carta da mão para entregar a ${me.name}.`);
+        }
+        break;
+      }
+
+      default:
+        endsTurn = true;
+        break;
+    }
+
+    return endsTurn;
+  }
+
+  private checkBotTurn() {
+    if (this.state.status !== "playing") return;
+    if (this.botActionTimeout) {
+      clearTimeout(this.botActionTimeout);
+      this.botActionTimeout = null;
+    }
+
+    // 1. Ação pendente onde um bot é o requiredPlayerId
+    if (this.state.pendingAction) {
+      const requiredId = this.state.pendingAction.requiredPlayerId;
+      const requiredPlayer = this.state.players[requiredId];
+      if (requiredPlayer?.isBot && !requiredPlayer.isEliminated) {
+        const delay = Math.floor(Math.random() * 600) + 1200; // 1200ms a 1800ms
+        this.botActionTimeout = setTimeout(() => {
+          this.botActionTimeout = null;
+          this.executeBotPendingAction(requiredId);
+        }, delay);
+      }
+      return;
+    }
+
+    // 2. Turno normal do bot
+    const currentId = this.state.currentTurnPlayerId;
+    if (!currentId) return;
+    const bot = this.state.players[currentId];
+    if (!bot || !bot.isBot || bot.isEliminated || bot.isSpectating) {
+      return;
+    }
+
+    const delay = Math.floor(Math.random() * 600) + 1200; // 1200ms a 1800ms
+    this.botActionTimeout = setTimeout(() => {
+      this.botActionTimeout = null;
+      this.executeBotTurn(currentId);
+    }, delay);
+  }
+
+  private executeBotPendingAction(botId: string) {
+    if (this.state.status !== "playing") return;
+    if (!this.state.pendingAction || this.state.pendingAction.requiredPlayerId !== botId) return;
+
+    const bot = this.state.players[botId];
+    if (!bot || bot.isEliminated) return;
+
+    const pAction = this.state.pendingAction;
+    const initiator = this.state.players[pAction.initiatorPlayerId];
+
+    if (bot.hand.length === 0) {
+      this.state.pendingAction = null;
+      this.checkEliminations();
+      if (this.state.status === "playing") {
+        this.passTurn();
+      }
+      this.broadcastSync();
+      return;
+    }
+
+    const randomIndex = Math.floor(Math.random() * bot.hand.length);
+    const chosenCard = bot.hand.splice(randomIndex, 1)[0];
+
+    if (pAction.type === 'CHOOSE_CARD_TO_DISCARD') {
+      this.state.discard.push(chosenCard);
+      this.addLog(`🚨 ${bot.name} escolheu descartar "${chosenCard.name || 'Carta'}" pelo Alerta de Phishing.`);
+    } else if (pAction.type === 'CHOOSE_CARD_TO_GIVE') {
+      if (initiator && !initiator.isEliminated) {
+        initiator.hand.push(chosenCard);
+        this.addLog(`📜 ${bot.name} entregou "${chosenCard.name || 'Carta'}" para ${initiator.name} pelo LI E ACEITO!.`);
+      } else {
+        this.state.discard.push(chosenCard);
+        this.addLog(`📜 ${bot.name} descartou "${chosenCard.name || 'Carta'}", pois o jogador que usou a carta foi eliminado.`);
+      }
+    }
+
+    this.state.pendingAction = null;
+    this.checkEliminations();
+    if (this.state.status === "playing") {
+      this.passTurn();
+    }
+    this.broadcastSync();
+  }
+
+  private executeBotTurn(botId: string) {
+    if (this.state.status !== "playing") return;
+    if (this.state.currentTurnPlayerId !== botId) return;
+
+    const bot = this.state.players[botId];
+    if (!bot || !bot.isBot || bot.isEliminated || bot.isSpectating) {
+      this.passTurn();
+      this.broadcastSync();
+      return;
+    }
+
+    // FASE 1 (Compra): Compra uma carta do baralho se não comprou (e não for jogada extra)
+    if (this.state.extraPlayPlayerId !== bot.id) {
+      const drawnCard = this.drawOneCard();
+      if (drawnCard) {
+        bot.hand.push(drawnCard);
+        this.recordCardDrawn(bot.id);
+        this.addLog(`🤖 ${bot.name} comprou uma carta do baralho.`);
+      }
+    }
+
+    // FASE 2 (Jogada):
+    // Prioridade 1: Baixar carta-objeto válida na mesa que ele ainda não tenha (respeitando limite de 5) ou Coringa
+    const existingCategories = new Set(
+      bot.objectArea.filter(c => c.type === 'object' && c.category).map(c => c.category!)
+    );
+    const jokersCount = bot.objectArea.filter(c => c.type === 'joker').length;
+    const totalObjects = existingCategories.size + jokersCount;
+
+    if (totalObjects < VICTORY_OBJECTS_REQUIRED) {
+      const eligibleObjectIndex = bot.hand.findIndex(
+        c => (c.type === 'object' && c.category && !existingCategories.has(c.category)) || c.type === 'joker'
+      );
+
+      if (eligibleObjectIndex !== -1) {
+        const card = bot.hand.splice(eligibleObjectIndex, 1)[0];
+        bot.objectArea.push(card);
+        this.recordObjectPlayed(bot.id);
+
+        if (this.state.extraPlayPlayerId === bot.id) {
+          this.state.extraPlayPlayerId = null;
+          this.addLog(`⚡ ${bot.name} baixou o objeto ${card.name} como jogada extra do Prompt Perfeito!`);
+        } else if (card.type === 'joker') {
+          this.addLog(`🤖 ${bot.name} ativou um Coringa!`);
+        } else {
+          this.addLog(`🤖 ${bot.name} baixou o objeto ${card.name}.`);
+        }
+
+        const hasWon = this.checkVictory(bot.id);
+        if (hasWon) {
+          this.broadcastSync();
+          return;
+        }
+
+        this.checkEliminations();
+        if (this.state.status === "playing") {
+          this.passTurn();
+        }
+        this.broadcastSync();
+        return;
+      }
+    }
+
+    // Se estava em jogada extra e não tinha objeto novo
+    if (this.state.extraPlayPlayerId === bot.id) {
+      this.state.extraPlayPlayerId = null;
+      this.addLog(`⚡ ${bot.name} finalizou a jogada extra sem baixar novo objeto.`);
+      this.passTurn();
+      this.broadcastSync();
+      return;
+    }
+
+    // Prioridade 2: Se não tiver objeto, jogar carta de efeito mirando em um jogador aleatório
+    const effectIndex = bot.hand.findIndex(c => c.type === 'effect');
+    if (effectIndex !== -1) {
+      const effectCard = bot.hand[effectIndex];
+      const otherActivePlayers = Object.values(this.state.players).filter(
+        p => p.id !== bot.id && !p.isEliminated && !p.isSpectating
+      );
+
+      let targetPlayer: Player | undefined;
+      if (otherActivePlayers.length > 0) {
+        if (['Alerta de Phishing', 'LI E ACEITO!', 'Vídeo Deepfake', 'Esqueceu a Senha'].includes(effectCard.name || '')) {
+          const withHand = otherActivePlayers.filter(p => p.hand.length > 0);
+          targetPlayer = withHand.length > 0
+            ? withHand[Math.floor(Math.random() * withHand.length)]
+            : otherActivePlayers[Math.floor(Math.random() * otherActivePlayers.length)];
+        } else if (effectCard.name === 'Plágio Detectado') {
+          const withObjects = otherActivePlayers.filter(p => p.objectArea.length > 0);
+          targetPlayer = withObjects.length > 0
+            ? withObjects[Math.floor(Math.random() * withObjects.length)]
+            : otherActivePlayers[Math.floor(Math.random() * otherActivePlayers.length)];
+        } else {
+          targetPlayer = otherActivePlayers[Math.floor(Math.random() * otherActivePlayers.length)];
+        }
+      }
+
+      const requiresTarget = (TARGET_EFFECT_NAMES as readonly string[]).includes(effectCard.name || '');
+      if (!requiresTarget || targetPlayer) {
+        bot.hand.splice(effectIndex, 1);
+        this.state.discard.push(effectCard);
+        this.recordEffectPlayed(bot.id);
+
+        const endsTurn = this.applyEffectCard(bot, effectCard, targetPlayer);
+
+        this.checkEliminations();
+        if (endsTurn && this.state.status === "playing") {
+          this.passTurn();
+        } else if (!endsTurn && this.state.status === "playing") {
+          this.checkBotTurn();
+        }
+        this.broadcastSync();
+        return;
+      }
+    }
+
+    // Prioridade 3: Se não puder jogar nada, descartar a última carta da mão
+    if (bot.hand.length > 0) {
+      const discarded = bot.hand.pop()!;
+      this.state.discard.push(discarded);
+      this.addLog(`🤖 ${bot.name} não pôde baixar objetos e descartou "${discarded.name || 'Carta'}".`);
+    } else {
+      this.addLog(`🤖 ${bot.name} passou a vez.`);
+    }
+
+    // FASE 3: Passar o turno para o próximo jogador
+    this.checkEliminations();
+    if (this.state.status === "playing") {
+      this.passTurn();
+    }
+    this.broadcastSync();
   }
 
   onMessage(message: string, sender: Party.Connection) {
@@ -1169,6 +1732,70 @@ export default class MainServer implements Party.Server {
         }
 
         this.startGame();
+        return;
+      }
+
+      if (parsed.type === "add_bot") {
+        if (this.state.status !== "lobby") {
+          sender.send(JSON.stringify({ type: "error", message: "Bots só podem ser adicionados no Lobby." }));
+          return;
+        }
+
+        if (myPlayerId !== this.state.creatorId) {
+          sender.send(JSON.stringify({ type: "error", message: "Apenas o criador da sala pode adicionar bots." }));
+          return;
+        }
+
+        const currentPlayers = Object.values(this.state.players);
+        if (currentPlayers.length >= MAX_PLAYERS_PER_ROOM) {
+          sender.send(JSON.stringify({ type: "error", message: `A sala já atingiu o limite de ${MAX_PLAYERS_PER_ROOM} jogadores.` }));
+          return;
+        }
+
+        const existingNames = new Set(currentPlayers.map(p => p.name.toLowerCase()));
+        const availableName = BOT_NAMES.find(n => !existingNames.has(n.toLowerCase())) || `🤖 Bot ${currentPlayers.length + 1}`;
+        const botId = `bot_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+
+        this.state.players[botId] = {
+          id: botId,
+          name: availableName,
+          isCreator: false,
+          hand: [],
+          objectArea: [],
+          isBot: true,
+          isSpectating: false,
+        };
+
+        this.addLog(`${availableName} entrou no Lobby.`);
+        this.checkAutoStartTimer();
+        this.notifyRegistry();
+        this.broadcastSync();
+        return;
+      }
+
+      if (parsed.type === "remove_bot") {
+        if (this.state.status !== "lobby") {
+          sender.send(JSON.stringify({ type: "error", message: "Bots só podem ser removidos no Lobby." }));
+          return;
+        }
+
+        if (myPlayerId !== this.state.creatorId) {
+          sender.send(JSON.stringify({ type: "error", message: "Apenas o criador da sala pode remover bots." }));
+          return;
+        }
+
+        const botPlayer = this.state.players[parsed.botId];
+        if (!botPlayer || !botPlayer.isBot) {
+          sender.send(JSON.stringify({ type: "error", message: "Bot não encontrado na sala." }));
+          return;
+        }
+
+        const botName = botPlayer.name;
+        delete this.state.players[parsed.botId];
+        this.addLog(`${botName} foi removido do Lobby.`);
+        this.checkAutoStartTimer();
+        this.notifyRegistry();
+        this.broadcastSync();
         return;
       }
 
@@ -1355,291 +1982,17 @@ export default class MainServer implements Party.Server {
             this.state.discard.push(card);
             this.recordEffectPlayed(me.id);
 
-            switch (card.name) {
-              case 'Senha Forte':
-                for (let k = 0; k < 2; k++) {
-                  const c = this.drawOneCard();
-                  if (c) {
-                    me.hand.push(c);
-                    this.recordCardDrawn(me.id);
-                  }
-                }
-                this.addLog(`🔑 ${me.name} usou Senha Forte e comprou 2 cartas do baralho.`);
-                break;
-
-              case 'Senha Fraca Detectada': {
-                if (!targetPlayer) break;
-                const c = this.drawOneCard();
-                if (c) {
-                  me.hand.push(c);
-                  this.recordCardDrawn(me.id);
-                }
-
-                this.state.revealedPlayerIds = Array.from(
-                  new Set([...(this.state.revealedPlayerIds || []), targetPlayer.id])
-                );
-                this.state.revealedPlayerUntilTurn = {
-                  ...(this.state.revealedPlayerUntilTurn || {}),
-                  [targetPlayer.id]: me.id
-                };
-                this.addLog(`🔍 ${me.name} detectou Senha Fraca de ${targetPlayer.name}! A mão de ${targetPlayer.name} foi revelada a todos (+1 carta comprada).`);
-                break;
-              }
-
-              case 'Vazamento de Dados': {
-                this.state.revealedHandsUntilTurnOfPlayerId = me.id;
-                const c = this.drawOneCard();
-                if (c) {
-                  me.hand.push(c);
-                  this.recordCardDrawn(me.id);
-                }
-                this.addLog(`👁️ ${me.name} usou Vazamento de Dados! Todos jogam com as mãos reveladas até o próximo turno de ${me.name} (+1 carta comprada).`);
-                break;
-              }
-
-              case 'Six Seven': {
-                const activePlayerIds = Object.keys(this.state.players).filter(
-                  id => !this.state.players[id].isEliminated
-                );
-                if (activePlayerIds.length > 1) {
-                  const originalHands: Record<string, Card[]> = {};
-                  for (const pid of activePlayerIds) {
-                    originalHands[pid] = [...this.state.players[pid].hand];
-                  }
-                  for (let i = 0; i < activePlayerIds.length; i++) {
-                    const fromId = activePlayerIds[i];
-                    const toIndex = (i + 1) % activePlayerIds.length;
-                    const toId = activePlayerIds[toIndex];
-                    this.state.players[toId].hand = originalHands[fromId];
-                  }
-                  this.addLog(`🔄 ${me.name} usou Six Seven! Todos os jogadores passaram suas mãos inteiras de cartas para a esquerda.`);
-                } else {
-                  this.addLog(`${me.name} usou Six Seven, mas não há outros jogadores ativos para passar a mão.`);
-                }
-                break;
-              }
-
-              case 'Limpeza de Cache':
-                if (me.hand.length <= 1) {
-                  for (let k = 0; k < 3; k++) {
-                    const c = this.drawOneCard();
-                    if (c) {
-                      me.hand.push(c);
-                      this.recordCardDrawn(me.id);
-                    }
-                  }
-                  this.addLog(`🧹 ${me.name} fez Limpeza de Cache e comprou 3 cartas!`);
-                } else {
-                  this.addLog(`${me.name} tentou Limpeza de Cache, mas tinha ${me.hand.length} cartas na mão (necessário 0 ou 1). Nenhuma carta comprada.`);
-                }
-                break;
-
-              case 'Engajamento Merecido': {
-                const amountToDraw = me.objectArea.length;
-                for (let k = 0; k < amountToDraw; k++) {
-                  const c = this.drawOneCard();
-                  if (c) {
-                    me.hand.push(c);
-                    this.recordCardDrawn(me.id);
-                  }
-                }
-                this.addLog(`⭐ ${me.name} ganhou ${amountToDraw} carta(s) pelo seu Engajamento Merecido.`);
-                break;
-              }
-
-              case 'Formatar o Sistema': {
-                const activePlayers = Object.values(this.state.players).filter(p => !p.isEliminated);
-                // Envia todas as mãos dos jogadores ativos para o descarte
-                for (const p of activePlayers) {
-                  this.state.discard.push(...p.hand);
-                  p.hand = [];
-                }
-                // Distribui 3 cartas novas do baralho para cada participante ativo
-                for (let round = 0; round < 3; round++) {
-                  for (const p of activePlayers) {
-                    const c = this.drawOneCard();
-                    if (c) {
-                      p.hand.push(c);
-                      this.recordCardDrawn(p.id);
-                    }
-                  }
-                }
-                this.addLog(`💻 ${me.name} formatou o sistema! Todos descartaram suas mãos inteiras e compraram 3 cartas novas do baralho.`);
-                break;
-              }
-
-              case 'Rede de Apoio': {
-                for (let k = 0; k < 3; k++) {
-                  const c = this.drawOneCard();
-                  if (c) {
-                    me.hand.push(c);
-                    this.recordCardDrawn(me.id);
-                  }
-                }
-                if (targetPlayer) {
-                  const targetCard = this.drawOneCard();
-                  if (targetCard) {
-                    targetPlayer.hand.push(targetCard);
-                    this.recordCardDrawn(targetPlayer.id);
-                  }
-                  this.addLog(`🤝 ${me.name} usou Rede de Apoio: comprou 3 cartas e ${targetPlayer.name} comprou 1.`);
-                }
-                break;
-              }
-
-              case 'Tomou Block!': {
-                if (!targetPlayer) break;
-                const c = this.drawOneCard();
-                if (c) {
-                  me.hand.push(c);
-                  this.recordCardDrawn(me.id);
-                }
-                targetPlayer.skipNextTurn = true;
-                targetPlayer.isBlocked = true;
-                this.addLog(`🚫 ${me.name} deu Block em ${targetPlayer.name}! Ele perderá a vez no próximo turno (+1 carta comprada).`);
-                break;
-              }
-
-              case 'Vídeo Deepfake': {
-                if (!targetPlayer) break;
-                // Garante que a carta Vídeo Deepfake seja enviada para o discardPile e excluída da mão antes da troca
-                me.hand = me.hand.filter(c => c.id !== card.id);
-                if (!this.state.discard.some(c => c.id === card.id)) {
-                  this.state.discard.push(card);
-                }
-                const myHandToGive = [...me.hand];
-                me.hand = [...targetPlayer.hand];
-                targetPlayer.hand = myHandToGive;
-                this.addLog(`🎭 ${me.name} usou Vídeo Deepfake e trocou de mão com ${targetPlayer.name}!`);
-                break;
-              }
-
-              case 'Agência de Checagem': {
-                let returnedCount = 0;
-                for (const [pid, player] of Object.entries(this.state.players)) {
-                  if (pid !== me.id && !player.isEliminated && player.objectArea.length > 0) {
-                    const returnedCard = player.objectArea.pop()!;
-                    player.hand.push(returnedCard);
-                    returnedCount++;
-                  }
-                }
-                if (returnedCount > 0) {
-                  this.addLog(`🔎 ${me.name} acionou a Agência de Checagem! ${returnedCount} adversário(s) devolveram o último objeto da mesa para a mão.`);
-                } else {
-                  this.addLog(`🔎 ${me.name} acionou a Agência de Checagem, mas nenhum adversário possuía objetos na mesa.`);
-                }
-                break;
-              }
-
-              case 'Esqueceu a Senha': {
-                if (!targetPlayer) break;
-                if (targetPlayer.hand.length > 0) {
-                  const randomIndex = Math.floor(Math.random() * targetPlayer.hand.length);
-                  const discardedCard = targetPlayer.hand.splice(randomIndex, 1)[0];
-                  this.state.discard.push(discardedCard);
-                  this.addLog(`🔒 ${me.name} usou Esqueceu a Senha! ${targetPlayer.name} descartou 1 carta aleatória (${discardedCard.name || 'Carta'}).`);
-                } else {
-                  this.addLog(`🔒 ${me.name} usou Esqueceu a Senha contra ${targetPlayer.name}, mas ele não possuía cartas na mão.`);
-                }
-                break;
-              }
-
-              case 'Plágio Detectado': {
-                if (!targetPlayer) break;
-                if (targetPlayer.objectArea.length > 0) {
-                  const discardedObj = targetPlayer.objectArea.pop()!;
-                  this.state.discard.push(discardedObj);
-                  this.addLog(`🚨 ${me.name} detectou Plágio de ${targetPlayer.name}! O objeto "${discardedObj.name}" foi removido da mesa e descartado.`);
-                } else {
-                  this.addLog(`🚨 ${me.name} usou Plágio Detectado contra ${targetPlayer.name}, mas ele não possuía objetos na mesa.`);
-                }
-                break;
-              }
-
-              case 'Prompt Perfeito': {
-                for (let k = 0; k < 2; k++) {
-                  const c = this.drawOneCard();
-                  if (c) {
-                    me.hand.push(c);
-                    this.recordCardDrawn(me.id);
-                  }
-                }
-
-                const existingCategories = new Set(
-                  me.objectArea.filter(c => c.type === 'object' && c.category).map(c => c.category)
-                );
-                const hasEligibleObject = me.hand.some(
-                  c => c.type === 'object' && c.category && !existingCategories.has(c.category)
-                );
-
-                if (hasEligibleObject) {
-                  this.state.extraPlayPlayerId = me.id;
-                  endsTurn = false;
-                  this.addLog(`✨ ${me.name} usou Prompt Perfeito! Comprou 2 cartas e tem a chance de baixar um novo Objeto como jogada extra.`);
-                } else {
-                  this.addLog(`✨ ${me.name} usou Prompt Perfeito e comprou 2 cartas, mas não possui nenhum Objeto novo para baixar.`);
-                  endsTurn = true;
-                }
-                break;
-              }
-
-              case 'Alerta de Phishing': {
-                if (!targetPlayer) break;
-                if (targetPlayer.hand.length === 0) {
-                  this.addLog(`🚨 ${me.name} usou Alerta de Phishing em ${targetPlayer.name}, mas ele não possuía cartas na mão.`);
-                  endsTurn = true;
-                } else if (targetPlayer.hand.length === 1) {
-                  const discardedCard = targetPlayer.hand.splice(0, 1)[0];
-                  this.state.discard.push(discardedCard);
-                  this.addLog(`🚨 ${me.name} usou Alerta de Phishing! Como ${targetPlayer.name} só tinha 1 carta (${discardedCard.name || 'Carta'}), ela foi descartada automaticamente.`);
-                  endsTurn = true;
-                } else {
-                  this.state.pendingAction = {
-                    type: 'CHOOSE_CARD_TO_DISCARD',
-                    requiredPlayerId: targetPlayer.id,
-                    initiatorPlayerId: me.id,
-                    sourceCardName: card.name,
-                  };
-                  endsTurn = false;
-                  this.addLog(`🚨 ${me.name} jogou Alerta de Phishing em ${targetPlayer.name}, que deve escolher 1 carta da mão para descartar.`);
-                }
-                break;
-              }
-
-              case 'LI E ACEITO!': {
-                if (!targetPlayer) break;
-                if (targetPlayer.hand.length === 0) {
-                  this.addLog(`📜 ${me.name} usou LI E ACEITO! em ${targetPlayer.name}, mas ele não possuía cartas na mão.`);
-                  endsTurn = true;
-                } else if (targetPlayer.hand.length === 1) {
-                  const transferredCard = targetPlayer.hand.splice(0, 1)[0];
-                  me.hand.push(transferredCard);
-                  this.addLog(`📜 ${me.name} usou LI E ACEITO! Como ${targetPlayer.name} só tinha 1 carta (${transferredCard.name || 'Carta'}), ela foi entregue automaticamente a ${me.name}.`);
-                  endsTurn = true;
-                } else {
-                  this.state.pendingAction = {
-                    type: 'CHOOSE_CARD_TO_GIVE',
-                    requiredPlayerId: targetPlayer.id,
-                    initiatorPlayerId: me.id,
-                    sourceCardName: card.name,
-                  };
-                  endsTurn = false;
-                  this.addLog(`📜 ${me.name} jogou LI E ACEITO! em ${targetPlayer.name}, que deve escolher 1 carta da mão para entregar a ${me.name}.`);
-                }
-                break;
-              }
-
-              default:
-                sender.send(JSON.stringify({ type: "error", message: "Efeito desconhecido." }));
-                return;
-            }
+            endsTurn = this.applyEffectCard(me, card, targetPlayer);
           }
 
           this.checkEliminations();
           if (!hasWon && endsTurn) {
             this.passTurn();
-          } else if (!hasWon && !endsTurn && this.state.roomSettings?.turnTimerEnabled) {
-            this.resetTurnTimer();
+          } else if (!hasWon && !endsTurn) {
+            if (this.state.roomSettings?.turnTimerEnabled) {
+              this.resetTurnTimer();
+            }
+            this.checkBotTurn();
           }
           this.broadcastSync();
           return;
@@ -1656,6 +2009,10 @@ export default class MainServer implements Party.Server {
         }
 
         this.clearTurnTimer();
+        if (this.botActionTimeout) {
+          clearTimeout(this.botActionTimeout);
+          this.botActionTimeout = null;
+        }
 
         // Reseta tudo, mantém os jogadores conectados
         this.state.status = "lobby";

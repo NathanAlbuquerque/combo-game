@@ -468,6 +468,7 @@ export function GameBoard({
         isOpen={isLeaderboardOpen}
         onClose={() => setIsLeaderboardOpen(false)}
         roomLeaderboard={state.roomLeaderboard}
+        currentRoomId={roomId}
       />
 
       <ShareRoomModal

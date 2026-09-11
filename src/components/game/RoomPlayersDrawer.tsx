@@ -133,6 +133,12 @@ export function RoomPlayersDrawer({
                             </span>
                           )}
 
+                          {player.isBot && (
+                            <span className="text-[9.5px] bg-purple-500/20 text-purple-600 dark:text-purple-400 border border-purple-500/30 px-1.5 py-0.2 rounded font-bold shrink-0">
+                              BOT
+                            </span>
+                          )}
+
                           {isLeader && (
                             <span className="text-[9.5px] bg-amber-500/20 text-amber-600 dark:text-amber-400 px-1.5 py-0.2 rounded font-bold flex items-center gap-0.5 shrink-0" title="Criador da sala">
                               <Crown className="w-2.5 h-2.5" />

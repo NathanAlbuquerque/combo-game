@@ -138,6 +138,8 @@ export function useGameState({
     send({ type: "send_reaction", emoji });
   }, [send]);
   const returnToLobby = useCallback(() => send({ type: "return_to_lobby" }), [send]);
+  const addBot = useCallback(() => send({ type: "add_bot" }), [send]);
+  const removeBot = useCallback((botId: string) => send({ type: "remove_bot", botId }), [send]);
 
   return {
     gameState,
@@ -153,5 +155,7 @@ export function useGameState({
     updateSettings,
     sendReaction,
     returnToLobby,
+    addBot,
+    removeBot,
   };
 }

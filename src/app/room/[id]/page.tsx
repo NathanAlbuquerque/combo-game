@@ -62,6 +62,8 @@ function RoomContent() {
     updateSettings,
     sendReaction,
     returnToLobby,
+    addBot,
+    removeBot,
   } = useGameState({
     roomId,
     playerName,
@@ -208,6 +210,8 @@ function RoomContent() {
           onOpenShareModal={() => setIsShareModalOpen(true)}
           onOpenSettingsModal={() => setIsSettingsModalOpen(true)}
           onLeaveRoom={() => router.push("/")}
+          onAddBot={addBot}
+          onRemoveBot={removeBot}
         />
         <ShareRoomModal
           isOpen={isShareModalOpen}

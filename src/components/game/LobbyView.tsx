@@ -3,8 +3,8 @@
 import { Player, RoomSettings } from "@/types/game";
 import { Button } from "@/components/ui/button";
 import { CopyRoomButton } from "./CopyRoomButton";
-import { Settings, QrCode, Users, LogOut, Play } from "lucide-react";
-import { MIN_PLAYERS_AUTO_START } from "@/constants";
+import { Settings, QrCode, Users, LogOut, Play, Bot, X } from "lucide-react";
+import { MIN_PLAYERS_AUTO_START, MAX_PLAYERS_PER_ROOM } from "@/constants";
 
 interface LobbyViewProps {
   roomId: string;
@@ -17,6 +17,8 @@ interface LobbyViewProps {
   onOpenShareModal: () => void;
   onOpenSettingsModal: () => void;
   onLeaveRoom: () => void;
+  onAddBot?: () => void;
+  onRemoveBot?: (botId: string) => void;
 }
 
 export function LobbyView({
@@ -30,6 +32,8 @@ export function LobbyView({
   onOpenShareModal,
   onOpenSettingsModal,
   onLeaveRoom,
+  onAddBot,
+  onRemoveBot,
 }: LobbyViewProps) {
   return (
     <div className="min-h-screen w-full bg-zinc-950 bg-gradient-to-b from-zinc-900/60 via-zinc-950 to-black flex justify-center items-center overflow-x-hidden font-sans relative select-none">
@@ -151,9 +155,22 @@ export function LobbyView({
                   <Users className="w-4 h-4 text-primary shrink-0" />
                   <span>Participantes Conectados ({playersList.length})</span>
                 </h2>
-                <span className="text-[10px] font-bold text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
-                  Mín. {MIN_PLAYERS_AUTO_START} jogadores
-                </span>
+                <div className="flex items-center gap-2">
+                  {isCreator && playersList.length < MAX_PLAYERS_PER_ROOM && onAddBot && (
+                    <button
+                      type="button"
+                      onClick={onAddBot}
+                      className="inline-flex items-center gap-1 text-[11px] font-bold text-primary hover:text-primary/80 bg-primary/10 hover:bg-primary/20 px-2 py-0.5 rounded-lg transition-colors cursor-pointer border border-primary/25 active:scale-95"
+                      title="Adicionar bot virtual (IA)"
+                    >
+                      <Bot className="w-3.5 h-3.5" />
+                      <span>+ Adicionar Bot</span>
+                    </button>
+                  )}
+                  <span className="text-[10px] font-bold text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
+                    Mín. {MIN_PLAYERS_AUTO_START} jogadores
+                  </span>
+                </div>
               </div>
 
               <ul className="space-y-2 flex-1 overflow-y-auto pr-0.5 scrollbar-thin">
@@ -164,16 +181,21 @@ export function LobbyView({
                   >
                     <div className="flex items-center gap-2.5 min-w-0">
                       <div className="w-8 h-8 rounded-lg bg-primary/10 text-primary font-black text-xs flex items-center justify-center border border-primary/20 shrink-0">
-                        {p.name.charAt(0).toUpperCase()}
+                        {p.isBot ? "🤖" : p.name.charAt(0).toUpperCase()}
                       </div>
                       <div className="min-w-0">
                         <span className="font-bold text-sm block truncate">{p.name}</span>
                         <span className="text-[10px] text-muted-foreground block truncate">
-                          {p.isCreator ? "Criador da sala" : "Participante"}
+                          {p.isBot ? "Jogador Virtual (IA)" : p.isCreator ? "Criador da sala" : "Participante"}
                         </span>
                       </div>
                     </div>
                     <div className="flex items-center gap-1.5 shrink-0">
+                      {p.isBot && (
+                        <span className="text-[10px] bg-purple-500/20 text-purple-600 dark:text-purple-400 border border-purple-500/30 px-2 py-0.5 rounded-full font-bold">
+                          [BOT]
+                        </span>
+                      )}
                       {p.id === myId && (
                         <span className="text-[10px] bg-primary/20 text-primary px-2 py-0.5 rounded-full font-bold">
                           Você
@@ -183,6 +205,17 @@ export function LobbyView({
                         <span className="text-[10px] bg-amber-500/20 text-amber-600 dark:text-amber-400 px-2 py-0.5 rounded-full font-bold">
                           Líder
                         </span>
+                      )}
+                      {isCreator && p.isBot && onRemoveBot && (
+                        <button
+                          type="button"
+                          onClick={() => onRemoveBot(p.id)}
+                          className="w-6 h-6 rounded-full hover:bg-destructive/15 text-muted-foreground hover:text-destructive flex items-center justify-center transition-colors cursor-pointer ml-0.5"
+                          title={`Remover ${p.name}`}
+                          aria-label={`Remover ${p.name}`}
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
                       )}
                     </div>
                   </li>

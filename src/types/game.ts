@@ -32,6 +32,7 @@ export interface Player {
   isBlocked?: boolean; // Controle de bloqueio (Tomou Block!)
   isEliminated?: boolean; // Jogador sem cartas perde
   isSpectating?: boolean; // Modo espectador/espera
+  isBot?: boolean; // Jogador virtual controlado por IA
 }
 
 export type PendingAction = {
@@ -118,7 +119,9 @@ export type ClientMessage =
   | { type: 'end_turn' }
   | { type: 'return_to_lobby' }
   | { type: 'update_room_settings'; settings: Partial<RoomSettings> }
-  | { type: 'send_reaction'; emoji: string };
+  | { type: 'send_reaction'; emoji: string }
+  | { type: 'add_bot' }
+  | { type: 'remove_bot'; botId: string };
 
 // Mensagens enviadas do servidor para o cliente
 export type ServerMessage = 

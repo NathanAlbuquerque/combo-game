@@ -46,6 +46,11 @@ export const OpponentView = memo(function OpponentView({
           >
             {player.name}
           </span>
+          {player.isBot && (
+            <span className="text-[9px] bg-purple-500/20 text-purple-600 dark:text-purple-400 border border-purple-500/30 px-1 py-0.2 rounded font-bold shrink-0">
+              BOT
+            </span>
+          )}
         </div>
 
         <div className="flex items-center gap-1.5 shrink-0">

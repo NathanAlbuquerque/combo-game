@@ -13,6 +13,23 @@ interface LeaderboardModalProps {
   currentRoomId?: string;
 }
 
+function parseLeaderboardData(data: unknown): LeaderboardData {
+  if (!data || typeof data !== "object") {
+    return { global: [], lastResetAt: Date.now() };
+  }
+  const obj = data as Record<string, unknown>;
+  const global = Array.isArray(obj.global)
+    ? (obj.global as PlayerRankEntry[])
+    : Array.isArray(obj.leaderboard)
+    ? (obj.leaderboard as PlayerRankEntry[])
+    : Array.isArray(data)
+    ? (data as PlayerRankEntry[])
+    : [];
+
+  const lastResetAt = typeof obj.lastResetAt === "number" ? obj.lastResetAt : Date.now();
+  return { global, lastResetAt };
+}
+
 export function LeaderboardModal({
   isOpen,
   onClose,
@@ -26,6 +43,7 @@ export function LeaderboardModal({
     lastResetAt: Date.now(),
   }));
   const [isLoading, setIsLoading] = useState(false);
+  const [hasLoadedOnce, setHasLoadedOnce] = useState(false);
   const [now, setNow] = useState(() => Date.now());
 
   // Atualiza relógio do countdown a cada 30 segundos
@@ -50,11 +68,11 @@ export function LeaderboardModal({
     try {
       const res = await fetch("/api/leaderboard", { cache: "no-store" });
       if (res.ok) {
-        const data = (await res.json()) as LeaderboardData;
-        setGlobalData(data);
-        setIsLoading(false);
+        const data = await res.json();
+        setGlobalData(parseLeaderboardData(data));
         return;
       }
+      throw new Error(`HTTP ${res.status}`);
     } catch {
       // Fallback para PartyKit direto
       try {
@@ -64,35 +82,55 @@ export function LeaderboardModal({
           cache: "no-store",
         });
         if (res.ok) {
-          const data = (await res.json()) as LeaderboardData;
-          setGlobalData(data);
-          setIsLoading(false);
+          const data = await res.json();
+          setGlobalData(parseLeaderboardData(data));
           return;
         }
       } catch (err) {
         console.warn("Falha ao buscar ranking no fallback:", err);
       }
+    } finally {
+      setIsLoading(false);
+      setHasLoadedOnce(true);
     }
-    setIsLoading(false);
   }, []);
 
   useEffect(() => {
     if (!isOpen) return;
     let isMounted = true;
+
     const fetchInitial = async () => {
-      setIsLoading(true);
       try {
         const res = await fetch("/api/leaderboard", { cache: "no-store" });
         if (res.ok && isMounted) {
-          const data = (await res.json()) as LeaderboardData;
-          setGlobalData(data);
+          const data = await res.json();
+          setGlobalData(parseLeaderboardData(data));
+          return;
         }
-      } catch (e) {
-        console.warn("Erro ao buscar leaderboard inicial:", e);
+        throw new Error(`HTTP ${res.status}`);
+      } catch {
+        try {
+          const host = process.env.NEXT_PUBLIC_PARTYKIT_HOST || DEFAULT_PARTYKIT_HOST;
+          const protocol = host.startsWith("localhost") || host.startsWith("127.0.0.1") ? "http" : "https";
+          const res = await fetch(`${protocol}://${host}/parties/main/global-registry?type=leaderboard`, {
+            cache: "no-store",
+          });
+          if (res.ok && isMounted) {
+            const data = await res.json();
+            setGlobalData(parseLeaderboardData(data));
+            return;
+          }
+        } catch (err) {
+          console.warn("Falha ao buscar ranking no fallback:", err);
+        }
       } finally {
-        if (isMounted) setIsLoading(false);
+        if (isMounted) {
+          setIsLoading(false);
+          setHasLoadedOnce(true);
+        }
       }
     };
+
     fetchInitial();
     return () => {
       isMounted = false;
@@ -223,7 +261,7 @@ export function LeaderboardModal({
 
         {/* Lista de Classificação */}
         <div className="p-3 pt-1 max-h-[380px] overflow-y-auto space-y-2">
-          {isLoading && activeTab === "global" && globalData.global.length === 0 ? (
+          {(isLoading || (!hasLoadedOnce && globalData.global.length === 0)) && activeTab === "global" ? (
             <div className="py-12 text-center flex flex-col items-center justify-center gap-2 text-muted-foreground animate-pulse">
               <RefreshCw className="w-6 h-6 animate-spin text-primary" />
               <p className="text-xs font-medium">Carregando placar de campeões...</p>
