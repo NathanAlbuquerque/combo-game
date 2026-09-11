@@ -12,6 +12,14 @@ interface PublicRoomsListProps {
   onRequireName?: () => void;
 }
 
+function parseRoomsData(data: unknown): RoomSummary[] {
+  if (Array.isArray(data)) return data;
+  if (data && typeof data === "object" && "rooms" in data && Array.isArray((data as { rooms: unknown[] }).rooms)) {
+    return (data as { rooms: RoomSummary[] }).rooms;
+  }
+  return [];
+}
+
 export function PublicRoomsList({ playerName = "" }: PublicRoomsListProps) {
   const router = useRouter();
   const [rooms, setRooms] = useState<RoomSummary[]>([]);
@@ -23,8 +31,8 @@ export function PublicRoomsList({ playerName = "" }: PublicRoomsListProps) {
       // 1. Tenta a rota interna /api/rooms (proxy seguro e sem problemas de CORS)
       const res = await fetch("/api/rooms", { cache: "no-store" });
       if (res.ok) {
-        const data = (await res.json()) as RoomSummary[];
-        setRooms(Array.isArray(data) ? data : []);
+        const data = await res.json();
+        setRooms(parseRoomsData(data));
         setIsLoading(false);
         return;
       }
@@ -35,8 +43,8 @@ export function PublicRoomsList({ playerName = "" }: PublicRoomsListProps) {
         const protocol = host.startsWith("localhost") || host.startsWith("127.0.0.1") ? "http" : "https";
         const res = await fetch(`${protocol}://${host}/parties/main/global-registry`, { cache: "no-store" });
         if (res.ok) {
-          const data = (await res.json()) as RoomSummary[];
-          setRooms(Array.isArray(data) ? data : []);
+          const data = await res.json();
+          setRooms(parseRoomsData(data));
           setIsLoading(false);
           return;
         }
@@ -53,8 +61,8 @@ export function PublicRoomsList({ playerName = "" }: PublicRoomsListProps) {
       try {
         const res = await fetch("/api/rooms", { cache: "no-store" });
         if (res.ok && isMounted) {
-          const data = (await res.json()) as RoomSummary[];
-          setRooms(Array.isArray(data) ? data : []);
+          const data = await res.json();
+          setRooms(parseRoomsData(data));
         }
       } catch (err) {
         console.warn("Erro ao buscar salas inicialmente:", err);

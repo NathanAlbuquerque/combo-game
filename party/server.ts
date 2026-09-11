@@ -10,6 +10,7 @@ import {
   REACTION_RATE_LIMIT_MS,
   REACTION_RATE_LIMIT_MAX,
   TARGET_EFFECT_NAMES,
+  DEFAULT_PARTYKIT_HOST,
 } from "../src/constants/game";
 
 function shuffleDeck<T>(array: T[]): T[] {
@@ -209,18 +210,30 @@ export default class MainServer implements Party.Server {
         // Rota de Salas Públicas
         const now = Date.now();
         const activeRooms: RoomSummary[] = [];
+        let cleanedAny = false;
 
         for (const [id, summary] of this.registryRooms.entries()) {
           if (summary.playerCount <= 0 || now - summary.createdAt > 3 * 60 * 60 * 1000) {
             this.registryRooms.delete(id);
+            cleanedAny = true;
           } else {
             activeRooms.push(summary);
           }
         }
 
+        if (cleanedAny) {
+          try {
+            await this.room.storage.put("rooms", Object.fromEntries(this.registryRooms));
+          } catch (e) {
+            console.warn("Aviso ao persistir limpeza de salas no global-registry:", e);
+          }
+        }
+
         activeRooms.sort((a, b) => {
-          if (a.status === "lobby" && b.status !== "lobby") return -1;
-          if (a.status !== "lobby" && b.status === "lobby") return 1;
+          const aIsLobby = a.status === "lobby" || (a.status as string) === "waiting";
+          const bIsLobby = b.status === "lobby" || (b.status as string) === "waiting";
+          if (aIsLobby && !bIsLobby) return -1;
+          if (!aIsLobby && bIsLobby) return 1;
           return b.createdAt - a.createdAt;
         });
 
@@ -323,7 +336,7 @@ export default class MainServer implements Party.Server {
     if (this.room.id === "global-registry") return;
 
     try {
-      const activeCount = this.playerToConnectionId.size;
+      const activeCount = Object.keys(this.state.players).length;
       const isDelete = action === "delete" || activeCount === 0;
 
       const leader = this.state.creatorId
@@ -339,21 +352,45 @@ export default class MainServer implements Party.Server {
         leaderName: leader?.name || "Líder",
       };
 
+      const payload = JSON.stringify({
+        action: isDelete ? "delete" : "update",
+        roomId: this.room.id,
+        summary: isDelete ? undefined : summary,
+      });
+
       const partyName = this.room.name || "main";
-      const registryStub = this.room.context?.parties?.[partyName]?.get("global-registry");
+      const registryStub = (this.room.context?.parties?.[partyName] || this.room.context?.parties?.main)?.get("global-registry");
+      let notified = false;
+
       if (registryStub) {
-        await registryStub.fetch("", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            action: isDelete ? "delete" : "update",
-            roomId: this.room.id,
-            summary: isDelete ? undefined : summary,
-          }),
-        });
+        try {
+          const res = await registryStub.fetch("/", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: payload,
+          });
+          if (res.ok) {
+            notified = true;
+          }
+        } catch (stubErr) {
+          console.warn("Aviso ao notificar global-registry via stub, tentando HTTP:", stubErr);
+        }
+      }
+
+      if (!notified) {
+        try {
+          const host = DEFAULT_PARTYKIT_HOST;
+          await fetch(`https://${host}/parties/main/global-registry`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: payload,
+          });
+        } catch (fetchErr) {
+          console.error("Erro no fallback HTTP para global-registry:", fetchErr);
+        }
       }
     } catch (err) {
-      console.error("Erro ao notificar global-registry:", err);
+      console.error("Erro geral ao notificar global-registry:", err);
     }
   }
 
@@ -403,18 +440,42 @@ export default class MainServer implements Party.Server {
   private async notifyGlobalLeaderboard(winnerName: string | null, participants: string[]) {
     if (this.room.id === "global-registry") return;
     try {
+      const payload = JSON.stringify({
+        action: "record_match_result",
+        winnerName: winnerName || undefined,
+        participants,
+      });
+
       const partyName = this.room.name || "main";
-      const registryStub = this.room.context?.parties?.[partyName]?.get("global-registry");
+      const registryStub = (this.room.context?.parties?.[partyName] || this.room.context?.parties?.main)?.get("global-registry");
+      let notified = false;
+
       if (registryStub) {
-        await registryStub.fetch("", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            action: "record_match_result",
-            winnerName: winnerName || undefined,
-            participants,
-          }),
-        });
+        try {
+          const res = await registryStub.fetch("/", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: payload,
+          });
+          if (res.ok) {
+            notified = true;
+          }
+        } catch (stubErr) {
+          console.warn("Aviso ao registrar resultado no global-registry via stub, tentando HTTP:", stubErr);
+        }
+      }
+
+      if (!notified) {
+        try {
+          const host = DEFAULT_PARTYKIT_HOST;
+          await fetch(`https://${host}/parties/main/global-registry`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: payload,
+          });
+        } catch (fetchErr) {
+          console.error("Erro no fallback HTTP de resultado para global-registry:", fetchErr);
+        }
       }
     } catch (err) {
       console.error("Erro ao notificar global-registry sobre resultado da partida:", err);
@@ -425,6 +486,7 @@ export default class MainServer implements Party.Server {
     if (this.matchRecorded) return;
     this.matchRecorded = true;
     this.recordMatchLeaderboard(this.state.winnerId);
+    this.notifyRegistry();
   }
 
   private addLog(message: string) {
@@ -742,6 +804,7 @@ export default class MainServer implements Party.Server {
       }, DISCONNECT_TIMEOUT_MS);
 
       this.disconnectTimeouts.set(playerId, timeout);
+      this.notifyRegistry();
     }
   }
 
